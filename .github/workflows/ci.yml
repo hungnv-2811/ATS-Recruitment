@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Trước tuần 2 repo chưa có solution — bước này giúp CI không đỏ oan.
+      - name: Kiểm tra đã có solution chưa
+        id: check
+        run: |
+          if ls *.sln src/*.sln >/dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "::notice::Chưa có file .sln — bỏ qua build/test."
+          fi
+
+      - name: Restore
+        if: steps.check.outputs.found == 'true'
+        run: dotnet restore
+
+      - name: Build
+        if: steps.check.outputs.found == 'true'
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        if: steps.check.outputs.found == 'true'
+        run: dotnet test --no-build --configuration Release --verbosity normal

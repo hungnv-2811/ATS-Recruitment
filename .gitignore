@@ -1,0 +1,40 @@
+## .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+project.lock.json
+artifacts/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.swp
+
+## Cấu hình và bí mật — KHÔNG BAO GIỜ commit
+.env
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+*.pfx
+
+## Dữ liệu tải lên (CV thật của ứng viên)
+uploads/
+storage/
+*.pdf.local
+
+## Log & tạm
+logs/
+*.log
+*.tmp
+
+## macOS / Windows
+.DS_Store
+Thumbs.db
