@@ -105,7 +105,7 @@ ATS-Recruitment/
 ├── CONTRIBUTING.md              ← quy ước branch / commit / PR bắt buộc
 ├── .dockerignore                ← chặn bin/obj và bí mật lọt vào image
 ├── .github/
-│   ├── workflows/ci.yml         ← CI: build + test + cảnh báo PR quá lớn
+│   ├── workflows/ci.yml         ← CI: build + test
 │   ├── CODEOWNERS               ← tự gán reviewer theo tầng
 │   ├── pull_request_template.md
 │   └── ISSUE_TEMPLATE/task.md
@@ -206,7 +206,7 @@ dotnet test
   Không commit thẳng, kể cả sửa một dòng. PR chạm `ATS.Contracts` cần 2 approve.
 - Reviewer mặc định là **người tiêu thụ đầu ra của tầng bạn** — [.github/CODEOWNERS](.github/CODEOWNERS)
   tự gán. Cam kết phản hồi review trong **24 giờ**.
-- Điều kiện merge: CI xanh + đủ approve + có `Closes #N` + PR dưới ~400 dòng.
+- Điều kiện merge: CI xanh + đủ approve + có `Closes #N`. **Không giới hạn kích thước PR.**
 - Backlog và tiến độ quản lý trên **GitHub Projects**: To do → In progress → Review → Done.
 - Mỗi việc phải có **issue gán người phụ trách**, gắn nhãn theo tầng và milestone theo tuần.
 

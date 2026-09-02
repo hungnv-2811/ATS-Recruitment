@@ -49,29 +49,3 @@ jobs:
       - name: Test
         if: steps.check.outputs.found == 'true'
         run: dotnet test --no-build --configuration Release --verbosity normal
-
-  # Nhắc nhở khi PR quá lớn. CHỈ CẢNH BÁO, không chặn merge — đừng thêm job này
-  # vào danh sách status check bắt buộc. Ngưỡng 400 dòng: xem CONTRIBUTING.md mục 3.4.
-  pr-size:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    steps:
-      - name: Đo số dòng thay đổi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          # Không tính file sinh tự động: migration EF Core, file khoá gói, ảnh.
-          total=$(gh pr view "$PR" --repo "$REPO" --json files --jq '
-            [ .files[]
-              | select(.path | test("Migrations/|\\.Designer\\.cs$|package-lock\\.json$|\\.(png|jpg|jpeg|svg|ico)$") | not)
-              | .additions + .deletions
-            ] | add // 0' || echo 0)
-          total=${total:-0}
-          echo "Số dòng thay đổi (đã trừ file sinh tự động): $total"
-          if [ "$total" -gt 400 ]; then
-            echo "::warning::PR này thay đổi $total dòng, vượt ngưỡng 400 của CONTRIBUTING.md mục 3.4. Cân nhắc tách nhỏ — khả năng bắt lỗi của người review giảm mạnh ở PR lớn."
-          fi

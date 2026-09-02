@@ -16,8 +16,8 @@ sách ngắn những thứ **đáng tìm nhất ở tầng đó**.
    quyết đúng hay chưa. PR không có `Closes #N` → yêu cầu bổ sung, chưa review.
 2. **Xem CI đã xanh chưa.** CI đỏ thì trả lại ngay, đừng review. Người review không phải là
    trình biên dịch.
-3. **Nhìn số dòng thay đổi.** Vượt ~400 dòng mà không có lý do chính đáng → yêu cầu tách PR.
-   Việc này khó nói nhưng phải nói: PR to là chỗ lỗi trốn được.
+3. **Ước lượng thời gian cần bỏ ra.** Nhóm không giới hạn kích thước PR, nên PR có thể rất dài.
+   PR dài thì dành đủ thời gian đọc, hoặc hẹn tác giả đi qua cùng nhau — đừng lướt rồi approve.
 
 ---
 
