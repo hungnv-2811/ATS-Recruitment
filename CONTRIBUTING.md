@@ -35,13 +35,109 @@ chore(ci): them buoc dotnet test
 Loại: `feat` | `fix` | `docs` | `test` | `refactor` | `chore`
 Phạm vi: `data` | `business` | `api` | `web` | `ai` | `contracts` | `ci` | `docker`
 
-## 3. Pull Request
+## 3. Pull Request — bắt buộc
 
-- Mở PR từ `feature/*` vào `develop`.
-- **Bắt buộc ít nhất 1 approve** từ thành viên khác trước khi merge.
-- PR phải liên kết tới issue (`Closes #12`).
-- Điền đủ checklist trong template PR.
-- PR sửa `src/ATS.Contracts` cần **2 approve từ 2 tầng khác nhau**, vì nó ảnh hưởng mọi người.
+**Mọi thay đổi vào `develop` và `main` đều phải đi qua Pull Request và có ít nhất một approve.
+Không có ngoại lệ, kể cả sửa một dòng.**
+
+Lý do không phải hình thức: tiêu chí *"Git, PR, review"* chiếm **15% điểm học phần**, và được
+chấm bằng **minh chứng trên GitHub** — lịch sử PR, nội dung comment review, ai approve của ai.
+Commit thẳng vào `develop` không để lại minh chứng nào, nên dù code có tốt thì phần điểm đó vẫn
+mất. Trong 12 sản phẩm bàn giao cuối học phần, có hai mục là *"Lịch sử branch, commit, PR"* và
+*"Minh chứng code review"*.
+
+### 3.1. Vòng đời một PR
+
+1. Tạo nhánh `feature/*` từ `develop`.
+2. **Mở Draft PR ngay từ commit đầu tiên**, không đợi làm xong. Draft PR cho cả nhóm thấy việc
+   đang chạy tới đâu, và cho CI chạy sớm để lỗi build lộ ra trong ngày đầu thay vì ngày cuối.
+3. Làm xong → bấm *Ready for review*, gán reviewer theo bảng 3.3.
+4. Reviewer phản hồi **trong vòng 24 giờ**.
+5. Tác giả sửa theo góp ý, trả lời từng comment (không im lặng push đè).
+6. Reviewer approve → **tác giả tự merge** (squash) và xoá nhánh.
+
+### 3.2. Điều kiện merge
+
+| Điều kiện | Ghi chú |
+|---|---|
+| CI xanh | `dotnet build` + `dotnet test` |
+| ≥ 1 approve | PR chạm `src/ATS.Contracts` cần **2 approve** |
+| Có liên kết issue | `Closes #12` trong phần mô tả |
+| ≤ ~400 dòng thay đổi | Không tính file sinh tự động và migration — xem 3.4 |
+| Không còn comment `[blocking]` chưa xử lý | Xem `docs/code-review.md` |
+
+**Cách merge:** `Squash and merge` khi gộp `feature/*` → `develop` (mỗi việc thành đúng một
+commit sạch trên `develop`). `Merge commit` khi gộp `develop` → `main` (giữ lại lịch sử của
+đợt phát hành).
+
+### 3.3. Ai review PR của ai
+
+Reviewer mặc định là **người tiêu thụ đầu ra của tầng bạn**, không phải người rảnh nhất. Lý do:
+người dùng contract của bạn là người phát hiện sớm nhất nếu contract sai, và họ có động cơ thật
+để đọc kỹ.
+
+| Người mở PR | Tầng | Reviewer chính | Vì sao chọn người này |
+|---|---|---|---|
+| TV1 | `ATS.Data` | **TV2** | Business gọi repository — kiểu dữ liệu hoặc quan hệ sai sẽ đập vào TV2 trước tiên |
+| TV2 | `ATS.Business`, `ATS.Api` | **TV3** | Web gọi API — DTO thiếu trường, mã lỗi khó xử lý sẽ lộ ra ở phía TV3 |
+| TV3 | `ATS.Web` | **TV2** | TV2 biết API trả gì, phát hiện được chỗ giao diện dùng sai hợp đồng |
+| TV4 | `ATS.AI`, `ATS.Tests` | **TV1** | TV1 là người dự phòng mảng AI (chống bus factor = 1) nên buộc phải đọc code AI đều đặn |
+| Bất kỳ | `ATS.Contracts` | **2 người** thuộc hai tầng bị ảnh hưởng | Thay đổi contract ảnh hưởng mọi người |
+
+Reviewer chính bận quá 24 giờ → **người dự phòng** của mảng đó approve thay, và ghi rõ lý do
+ngay trong PR (`TV2 nghỉ ốm, TV1 review thay`). Việc không được đứng chờ, nhưng cũng không được
+merge chui.
+
+File [.github/CODEOWNERS](.github/CODEOWNERS) tự động gán reviewer theo bảng này — không ai phải
+nhớ.
+
+### 3.4. Vì sao PR phải nhỏ
+
+Con số ~400 dòng không phải tuỳ tiện: khả năng phát hiện lỗi của người review **giảm mạnh khi PR
+vượt khoảng 200–400 dòng thay đổi**. Vượt ngưỡng đó, người review chuyển từ *đọc* sang *lướt rồi
+bấm approve* — lúc này nhóm mất cả chất lượng lẫn 15% điểm quy trình, dù trên GitHub vẫn có đủ PR.
+
+Việc lớn thì tách theo **bước dọc trong một tầng**, mỗi bước một PR:
+
+```
+feature/data-job-entity        → entity + cấu hình EF          (~150 dòng)
+feature/data-job-migration     → migration + seed              (~80 dòng)
+feature/data-job-repository    → repository + unit test        (~200 dòng)
+feature/api-job-service        → service nghiệp vụ + test      (~250 dòng)
+feature/api-job-controller     → controller + Swagger          (~150 dòng)
+feature/web-job-list           → màn hình danh sách            (~300 dòng)
+```
+
+### 3.5. Ngoại lệ duy nhất
+
+PR **chỉ sửa tài liệu** (`docs/`, `*.md`): vẫn mở PR, vẫn cần 1 approve, nhưng bỏ yêu cầu viết
+test và bỏ giới hạn 400 dòng.
+
+Không có ngoại lệ nào khác. Đặc biệt **không có ngoại lệ "sửa gấp trước buổi demo"** — đó chính
+là lúc dễ đẩy lỗi vào `main` nhất.
+
+### 3.6. Bật branch protection trên GitHub (TV1 làm, tuần 1)
+
+Quy ước chỉ là quy ước cho tới khi GitHub cưỡng chế nó. `Settings → Branches → Add rule` cho cả
+`main` và `develop`:
+
+- [x] Require a pull request before merging
+- [x] Require approvals — **1** (đặt **2** cho `main`)
+- [x] Dismiss stale pull request approvals when new commits are pushed
+- [x] Require status checks to pass before merging → chọn check **`build-and-test`**
+- [x] Require branches to be up to date before merging
+- [x] Require conversation resolution before merging
+- [ ] ~~Allow force pushes~~ / ~~Allow deletions~~ — để tắt
+
+> **Lưu ý về gói tài khoản:** trên gói GitHub Free, branch protection chỉ áp dụng cho repo
+> **public**; repo private cần gói Pro/Team. Hai cách xử lý: **để repo public** (đồ án học phần
+> không có gì bí mật, lại tiện cho giảng viên xem), hoặc dùng **GitHub Student Developer Pack**
+> để có Pro miễn phí. Kiểm tra lại trong `Settings → Branches` vì chính sách gói có thể thay đổi.
+
+### 3.7. Thay đổi `src/ATS.Contracts`
+
+Ngoài yêu cầu 2 approve: **báo cả nhóm trước khi mở PR**, và ghi rõ trong PR những tầng nào phải
+sửa theo. Đây là loại thay đổi duy nhất có thể làm cả ba người còn lại phải dừng việc.
 
 ## 4. Ranh giới sở hữu
 
@@ -53,7 +149,10 @@ Phạm vi: `data` | `business` | `api` | `web` | `ai` | `contracts` | `ci` | `do
 | `src/ATS.AI`, `src/ATS.Tests` | TV4 |
 | `src/ATS.Contracts` | Cả nhóm |
 
-Muốn sửa file thuộc tầng người khác → mở PR riêng và cần approve của chủ tầng đó.
+Muốn sửa file thuộc tầng người khác → báo và thống nhất với chủ tầng đó trước khi sửa.
+
+Bảng này được mã hoá trong [.github/CODEOWNERS](.github/CODEOWNERS): GitHub tự động gán chủ tầng
+làm reviewer khi PR chạm vào thư mục của họ.
 
 ## 5. Contract-first
 
@@ -71,7 +170,7 @@ Ví dụ: TV3 dựng toàn bộ giao diện trên `MockJobService` trước khi 
 ## 7. Kiểm thử
 
 - Người viết code là người viết unit test cho code đó.
-- **PR không có test → không merge** (trừ PR chỉ sửa tài liệu).
+- **Code mới không có test → chưa gộp vào `develop`** (trừ thay đổi chỉ sửa tài liệu).
 - TV4 phụ trách test tích hợp và E2E.
 
 ## 8. Bảo mật
