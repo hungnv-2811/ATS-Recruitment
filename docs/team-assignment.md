@@ -25,10 +25,10 @@ Chặn bằng **contract-first** (xem [contracts.md](contracts.md)).
 
 | Thành viên | Vai trò | Project sở hữu | Chịu trách nhiệm cuối cùng về |
 |---|---|---|---|
-| **TV1** — Hoạt | Nhóm trưởng / Kiến trúc & Hạ tầng dữ liệu | `ATS.Data`, `docker/`, `.github/` | Mô hình CSDL, entity, EF Core, migration, repository, tối ưu truy vấn; quản lý repository, branch protection, CI/CD, Docker, triển khai demo |
-| **TV2** — (điền tên) | Nghiệp vụ & API | `ATS.Business`, `ATS.Api` | Quy tắc nghiệp vụ, service, validation, state machine tuyển dụng, phân quyền nghiệp vụ; controller, DTO mapping, xử lý lỗi, Swagger |
-| **TV3** — (điền tên) | Giao diện & Trải nghiệm | `ATS.Web` | Toàn bộ Blazor: layout, routing, component dùng chung, form, bảng dữ liệu, gọi API, xử lý lỗi phía client, dashboard |
-| **TV4** — (điền tên) | AI & Chất lượng | `ATS.AI`, `ATS.Tests` | Pipeline AI 7 bước, prompt, fallback, ước tính chi phí; chiến lược kiểm thử, test tích hợp & E2E |
+| **TV1** — Hoạt | Nhóm trưởng / Kiến trúc & Hạ tầng dữ liệu | `ATS.Data`, `docker/`, `.github/` | Mô hình CSDL, entity, EF Core, migration, repository, tối ưu truy vấn; quản lý repository, CI/CD, Docker, triển khai demo |
+| **TV2** — Tuấn Anh | Nghiệp vụ & API | `ATS.Business`, `ATS.Api` | Quy tắc nghiệp vụ, service, validation, state machine tuyển dụng, phân quyền nghiệp vụ; controller, DTO mapping, xử lý lỗi, Swagger |
+| **TV3** — Hùng | Giao diện & Trải nghiệm | `ATS.Web` | Toàn bộ Blazor: layout, routing, component dùng chung, form, bảng dữ liệu, gọi API, xử lý lỗi phía client, dashboard |
+| **TV4** — Tiền | AI & Chất lượng | `ATS.AI`, `ATS.Tests` | Pipeline AI 7 bước, prompt, **host worker + retry + dead-letter**, các adapter nhà cung cấp, fallback 3 cấp, ước tính chi phí; chiến lược kiểm thử, **test ranh giới kiến trúc**, test tích hợp & E2E |
 
 > Điền đủ **họ tên + MSSV + tài khoản GitHub** để đối chiếu lịch sử commit/PR khi chấm.
 
@@ -41,7 +41,7 @@ Chặn bằng **contract-first** (xem [contracts.md](contracts.md)).
 | Giao diện | TV3 | TV2 |
 | AI | TV4 | TV1 |
 
-Người dự phòng đọc hiểu mã nguồn của mảng đó và theo dõi các PR liên quan, không cần viết code
+Người dự phòng đọc hiểu mã nguồn của mảng đó và theo dõi thay đổi liên quan, không cần viết code
 khi mọi việc bình thường.
 
 ## Đo đóng góp cá nhân
@@ -61,3 +61,6 @@ khi mọi việc bình thường.
 | TV2 quá tải (nghiệp vụ của cả 5 module) | Giữ controller mỏng; TV1 hỗ trợ từ tuần 6 |
 | Không ai nhìn thấy toàn cảnh | Mỗi tuần một buổi *walkthrough* dọc một chức năng qua cả 4 tầng |
 | Thầy hỏi thành viên X về AI mà X không biết | Trình bày chéo 5 phút/tuần |
+| **TV4 phình việc**: ngoài pipeline AI còn phải dựng host worker, retry, dead-letter, các adapter, *và* toàn bộ kiểm thử | Tuần 6 TV1 làm phần hạ tầng hàng đợi (`IScreeningQueue` + cấu hình Redis), TV4 chỉ lo phần AI bên trong worker. Cắt bớt adapter theo đường lùi trong [weekly-plan.md](weekly-plan.md) nếu trễ |
+| **TV1 phình việc ở tuần 8**: 5 container thay vì 2, thêm worker và Redis | Chia làm ba nhịp — tuần 2 dựng `db`+`queue`, tuần 6 dựng worker, tuần 8 chỉ ghép lại và deploy. Không dồn Docker vào một tuần |
+| **Phạm vi vượt sức 10 tuần** | Đường lùi đã quyết định sẵn trong [weekly-plan.md](weekly-plan.md): cắt theo thứ tự đã ghi, không cắt tuỳ hứng lúc gấp |
