@@ -8,7 +8,8 @@
 | `develop` | Tích hợp. Không commit trực tiếp. |
 | `feature/*` | Từng việc. Tạo từ `develop`, merge lại vào `develop`. |
 
-**Đặt tên nhánh kèm tầng** để nhìn là biết ai làm:
+**Đặt tên nhánh kèm tầng** để nhìn là biết ai làm. Dùng **slug tiếng Anh, không dấu**, ngắn
+gọn 3–5 từ:
 
 ```
 feature/data-job-entity
@@ -16,7 +17,12 @@ feature/api-job-service
 feature/web-job-list
 feature/ai-cv-scoring
 feature/contracts-job-dto
+feature/docs-architecture
+feature/docker-postgres-compose
 ```
+
+Phạm vi hợp lệ ở đầu tên nhánh — **giống hệt** danh sách phạm vi của commit ở mục 2:
+`data` | `business` | `api` | `web` | `ai` | `contracts` | `ci` | `docker` | `docs`
 
 ## 2. Commit
 
@@ -33,7 +39,11 @@ chore(ci): them buoc dotnet test
 ```
 
 Loại: `feat` | `fix` | `docs` | `test` | `refactor` | `chore`
-Phạm vi: `data` | `business` | `api` | `web` | `ai` | `contracts` | `ci` | `docker`
+Phạm vi: `data` | `business` | `api` | `web` | `ai` | `contracts` | `ci` | `docker` | `docs`
+
+> `docs` vừa là *loại* vừa là *phạm vi*, và đó là chủ ý: `docs(api)` là sửa tài liệu của tầng
+> API, còn `feat(docs)` thì vô nghĩa. Tuần 1–2 gần như toàn tài liệu nên phạm vi này cần có —
+> thiếu nó thì không đặt tên nhánh tài liệu cho đúng quy ước được.
 
 ## 3. Pull Request — bắt buộc
 
