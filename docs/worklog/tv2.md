@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Họ tên** | (điền tên) |
+| **Họ tên** | Tuấn Anh |
 | **MSSV** | (điền) |
 | **GitHub** | (điền) |
 | **Tầng phụ trách** | Nghiệp vụ & API |

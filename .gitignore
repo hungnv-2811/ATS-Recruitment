@@ -25,10 +25,14 @@ appsettings.Local.json
 secrets.json
 *.pfx
 
-## Dữ liệu tải lên (CV thật của ứng viên)
+## Dữ liệu tải lên (CV thật của ứng viên) — dữ liệu cá nhân, không bao giờ commit
 uploads/
 storage/
+data/
 *.pdf.local
+
+## CV mẫu dùng để test AI: chỉ commit CV tự bịa, đặt trong docs/samples/
+## Mọi CV thật phải nằm ngoài repo.
 
 ## Log & tạm
 logs/

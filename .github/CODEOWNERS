@@ -1,0 +1,44 @@
+# CODEOWNERS — tự động gán reviewer theo tầng kiến trúc.
+#
+# GitHub đọc file này khi có PR: ai sở hữu file bị chạm sẽ được gán làm reviewer,
+# không ai phải nhớ bảng phân công. Xem CONTRIBUTING.md mục 3.3 và mục 4.
+#
+# !!! VIỆC TUẦN 1: thay 4 tài khoản dưới đây bằng username GitHub thật của từng người,
+#     nếu không GitHub sẽ bỏ qua toàn bộ file này mà không báo lỗi.
+#
+#   @tv1-hoat      → TV1 Hoạt      — Dữ liệu & Hạ tầng
+#   @tv2-tuananh   → TV2 Tuấn Anh  — Nghiệp vụ & API
+#   @tv3-hung      → TV3 Hùng      — Giao diện
+#   @tv4-tien      → TV4 Tiền      — AI & Chất lượng
+#
+# Quy tắc khớp: dòng SAU ghi đè dòng TRƯỚC, nên thứ tự dưới đây có chủ đích.
+
+# Mặc định: nhóm trưởng xem mọi thứ không thuộc tầng nào rõ ràng.
+*                       @tv1-hoat
+
+# ── Tầng dữ liệu & hạ tầng ───────────────────────────────────────────────
+/src/ATS.Data/          @tv1-hoat @tv2-tuananh
+/docker/                @tv1-hoat
+/.github/               @tv1-hoat
+
+# ── Tầng nghiệp vụ & API ─────────────────────────────────────────────────
+/src/ATS.Business/      @tv2-tuananh @tv3-hung
+/src/ATS.Api/           @tv2-tuananh @tv3-hung
+
+# ── Tầng giao diện ───────────────────────────────────────────────────────
+/src/ATS.Web/           @tv3-hung @tv2-tuananh
+
+# ── AI & chất lượng ──────────────────────────────────────────────────────
+/src/ATS.AI/            @tv4-tien @tv1-hoat
+/src/ATS.Tests/         @tv4-tien @tv1-hoat
+
+# ── Contract dùng chung: cần 2 approve, gán cả nhóm ─────────────────────
+/src/ATS.Contracts/     @tv1-hoat @tv2-tuananh @tv3-hung @tv4-tien
+
+# ── Tài liệu: người viết chương nào review chương đó ─────────────────────
+/docs/architecture.md       @tv1-hoat
+/docs/database-design.md    @tv1-hoat
+/docs/contracts.md          @tv2-tuananh
+/docs/ai-integration.md     @tv4-tien
+/docs/code-review.md        @tv1-hoat
+/docs/worklog/              @tv1-hoat

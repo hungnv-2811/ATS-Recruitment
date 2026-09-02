@@ -1,34 +1,101 @@
 # TV1 phụ trách, hoàn thiện ở tuần 8.
 # Chạy:  docker compose -f docker/docker-compose.yml up --build
+#
+# Năm container, khớp với sơ đồ triển khai trong docs/architecture.md mục 6:
+#   web → api → db          (nghiệp vụ, đồng bộ)
+#   api → queue → worker    (sàng lọc AI, bất đồng bộ — xem ADR-02)
+#
+# CSDL là PostgreSQL, không phải SQL Server: xem docs/architecture.md mục 3.4.
 
 services:
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: postgres:16-alpine
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Dev_Password123!}"
+      POSTGRES_DB: ats
+      POSTGRES_USER: ats
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-Dev_Password123!}"
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - mssql-data:/var/opt/mssql
+      - pg-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -No -Q 'SELECT 1' || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ats -d ats"]
+      interval: 5s
+      retries: 10
+
+  queue:
+    image: redis:7-alpine
+    # appendonly: ghi việc xuống đĩa để khởi động lại không mất hàng đợi.
+    # Đây chính là điểm khác biệt so với hàng đợi in-memory đã bị loại ở ADR-02.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
       retries: 10
 
   api:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        PROJECT: ATS.Api
     depends_on:
       db:
         condition: service_healthy
+      queue:
+        condition: service_healthy
     environment:
-      ConnectionStrings__Default: "Server=db;Database=ATS;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Dev_Password123!};TrustServerCertificate=True"
-      # Khoá AI đọc từ file .env — KHÔNG commit file này
-      OpenAI__ApiKey: "${OPENAI_API_KEY}"
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
+      Redis__ConnectionString: "queue:6379"
+      FileStorage__RootPath: "/app/data/cvs"
+    volumes:
+      - cv-files:/app/data/cvs
     ports:
       - "8080:8080"
 
+  # Worker KHÔNG mở cổng ra ngoài — nó chỉ đọc hàng đợi.
+  # Cần chạy nhiều bản sao khi lô CV lớn:  docker compose up --scale worker=3
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        PROJECT: ATS.AI
+    depends_on:
+      db:
+        condition: service_healthy
+      queue:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
+      Redis__ConnectionString: "queue:6379"
+      FileStorage__RootPath: "/app/data/cvs"
+      # Khoá AI đọc từ file .env — KHÔNG commit file này.
+      # Chỉ worker cần khoá: API không bao giờ gọi thẳng LLM (ADR-02, ADR-03).
+      OpenAI__ApiKey: "${OPENAI_API_KEY}"
+      AiProvider: "${AI_PROVIDER:-OpenAI}"
+    volumes:
+      - cv-files:/app/data/cvs
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        PROJECT: ATS.Web
+    depends_on:
+      - api
+    environment:
+      ApiBaseUrl: "http://api:8080"
+    ports:
+      - "8081:8080"
+
 volumes:
-  mssql-data:
+  pg-data:
+  redis-data:
+  cv-files:

@@ -48,7 +48,7 @@
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Tạo repo, cấu trúc solution, branch protection, board backlog | #— | #— | Chưa bắt đầu |
+| Tạo repo, cấu trúc solution, branch protection, CODEOWNERS, board backlog | #— | #— | Chưa bắt đầu |
 
 ### PR đã review của người khác
 

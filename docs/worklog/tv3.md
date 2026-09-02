@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Họ tên** | (điền tên) |
+| **Họ tên** | Hùng |
 | **MSSV** | (điền) |
 | **GitHub** | (điền) |
 | **Tầng phụ trách** | Giao diện |

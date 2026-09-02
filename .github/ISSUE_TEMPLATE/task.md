@@ -23,7 +23,8 @@ Tuần
 - [ ] Code đã viết và chạy được
 - [ ] Có unit test
 - [ ] CI xanh
-- [ ] Đã có PR được approve và merge vào `develop`
+- [ ] **PR đã có ≥ 1 approve** (PR chạm `ATS.Contracts`: 2 approve)
+- [ ] Đã gộp vào `develop` **qua PR** — không commit thẳng
 - [ ] Đã ghi vào worklog cá nhân
 
 ## Phụ thuộc

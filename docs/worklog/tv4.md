@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Họ tên** | (điền tên) |
+| **Họ tên** | Tiền |
 | **MSSV** | (điền) |
 | **GitHub** | (điền) |
 | **Tầng phụ trách** | AI & Chất lượng |
