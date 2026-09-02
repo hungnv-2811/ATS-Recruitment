@@ -73,8 +73,9 @@ mất. Trong 12 sản phẩm bàn giao cuối học phần, có hai mục là *"
 | CI xanh | `dotnet build` + `dotnet test` |
 | ≥ 1 approve | PR chạm `src/ATS.Contracts` cần **2 approve** |
 | Có liên kết issue | `Closes #12` trong phần mô tả |
-| ≤ ~400 dòng thay đổi | Không tính file sinh tự động và migration — xem 3.4 |
 | Không còn comment `[blocking]` chưa xử lý | Xem `docs/code-review.md` |
+
+**Không có giới hạn số dòng.** PR to hay nhỏ là quyền của người làm; nhóm tin nhau tự cân nhắc.
 
 **Cách merge:** `Squash and merge` khi gộp `feature/*` → `develop` (mỗi việc thành đúng một
 commit sạch trên `develop`). `Merge commit` khi gộp `develop` → `main` (giữ lại lịch sử của
@@ -101,27 +102,25 @@ merge chui.
 File [.github/CODEOWNERS](.github/CODEOWNERS) tự động gán reviewer theo bảng này — không ai phải
 nhớ.
 
-### 3.4. Vì sao PR phải nhỏ
+### 3.4. Tách việc lớn — gợi ý, không bắt buộc
 
-Con số ~400 dòng không phải tuỳ tiện: khả năng phát hiện lỗi của người review **giảm mạnh khi PR
-vượt khoảng 200–400 dòng thay đổi**. Vượt ngưỡng đó, người review chuyển từ *đọc* sang *lướt rồi
-bấm approve* — lúc này nhóm mất cả chất lượng lẫn 15% điểm quy trình, dù trên GitHub vẫn có đủ PR.
+Nhóm **không đặt giới hạn kích thước PR**. Mỗi người tự quyết định mở PR lúc nào và to cỡ nào.
 
-Việc lớn thì tách theo **bước dọc trong một tầng**, mỗi bước một PR:
+Gợi ý cho lúc thấy PR của mình bắt đầu khó review: tách theo **bước dọc trong một tầng**, mỗi
+bước một PR. Đây là gợi ý để tham khảo, không phải quy tắc phải theo:
 
 ```
-feature/data-job-entity        → entity + cấu hình EF          (~150 dòng)
-feature/data-job-migration     → migration + seed              (~80 dòng)
-feature/data-job-repository    → repository + unit test        (~200 dòng)
-feature/api-job-service        → service nghiệp vụ + test      (~250 dòng)
-feature/api-job-controller     → controller + Swagger          (~150 dòng)
-feature/web-job-list           → màn hình danh sách            (~300 dòng)
+feature/data-job-entity        → entity + cấu hình EF
+feature/data-job-migration     → migration + seed
+feature/data-job-repository    → repository + unit test
+feature/api-job-service        → service nghiệp vụ + test
+feature/api-job-controller     → controller + Swagger
+feature/web-job-list           → màn hình danh sách
 ```
 
 ### 3.5. Ngoại lệ duy nhất
 
-PR **chỉ sửa tài liệu** (`docs/`, `*.md`): vẫn mở PR, vẫn cần 1 approve, nhưng bỏ yêu cầu viết
-test và bỏ giới hạn 400 dòng.
+PR **chỉ sửa tài liệu** (`docs/`, `*.md`): vẫn mở PR, vẫn cần 1 approve, nhưng bỏ yêu cầu viết test.
 
 Không có ngoại lệ nào khác. Đặc biệt **không có ngoại lệ "sửa gấp trước buổi demo"** — đó chính
 là lúc dễ đẩy lỗi vào `main` nhất.

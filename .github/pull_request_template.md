@@ -31,13 +31,10 @@ Closes #
 
 - [ ] `dotnet build` và `dotnet test` chạy xanh ở máy tôi
 - [ ] Đã viết unit test cho phần mới (hoặc PR này chỉ sửa tài liệu)
-- [ ] PR dưới ~400 dòng thay đổi — nếu vượt, đã giải thích lý do ở dưới
 - [ ] Không commit API key, connection string thật, hay dữ liệu ứng viên thật
 - [ ] Không sửa file thuộc tầng người khác (nếu có: đã thống nhất với chủ tầng, ghi tên vào đây)
 - [ ] Đã cập nhật tài liệu liên quan trong `docs/` nếu hành vi hệ thống thay đổi
 - [ ] Đã tự đọc lại toàn bộ diff của chính mình trước khi gán reviewer
-
-<!-- Nếu PR vượt 400 dòng, giải thích tại sao không tách nhỏ được: -->
 
 ## Dành cho người review
 
