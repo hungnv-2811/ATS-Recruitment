@@ -1,6 +1,6 @@
 # ATS-Recruitment — Hệ thống Quản lý Tuyển dụng & Sàng lọc Ứng viên tích hợp AI
 
-Đồ án môn **Chuyên đề tổng hợp (607708)** — Nhóm 4.
+Đồ án môn **Chuyên đề tổng hợp (607708)** — Nhóm 3.
 
 Hệ thống ATS (Applicant Tracking System) giúp bộ phận nhân sự quản lý tin tuyển dụng, hồ sơ
 ứng viên và quy trình phỏng vấn; đồng thời tích hợp **trợ lý AI** để **tóm tắt CV** và **chấm
@@ -81,7 +81,7 @@ cuối cùng do con người. Mỗi kết quả có nút phản hồi để HR h
 
 | Thành phần | Công nghệ                                                  |
 | ------------ | ------------------------------------------------------------ |
-| Backend      | ASP.NET Core Web API (.NET 8), C#                            |
+| Backend      | ASP.NET Core Web API (.NET 10), C#                            |
 | CSDL         | Entity Framework Core + **PostgreSQL 16** (Npgsql)           |
 | Hàng đợi   | Redis (bền — bật AOF)                                       |
 | Giao diện   | Blazor                                                       |
@@ -138,7 +138,7 @@ ATS-Recruitment/
 
 ### Yêu cầu
 
-- .NET SDK 8.0
+- .NET SDK 10.0
 - Docker Desktop — dùng cho PostgreSQL và Redis kể cả khi phát triển ở máy
 
 ### Chạy khi phát triển
