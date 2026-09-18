@@ -1,174 +1,111 @@
-# Hướng dẫn code review
+# Code Review Checklist
 
-> Bổ trợ cho [CONTRIBUTING.md](../CONTRIBUTING.md) mục 3. Tài liệu này trả lời câu hỏi:
-> **người review phải nhìn cái gì?**
+> Áp dụng cho mọi PR. Reviewer đánh dấu ✓ hoặc để lại comment cho từng mục liên quan.
 
-Nhóm chia việc theo tầng, nên người review thường **không quen tay** với tầng của người mở PR.
-Nếu không có tiêu chí cụ thể, buổi review sẽ trôi thành "nhìn qua thấy ổn → approve", và cả nhóm
-mất cả chất lượng lẫn 15% điểm tiêu chí *Git, PR, review*. Tài liệu này cho mỗi tầng một danh
-sách ngắn những thứ **đáng tìm nhất ở tầng đó**.
+## 1. Ranh giới kiến trúc
 
----
+- [ ] Domain **không** reference Infrastructure hay bất kỳ SDK/framework nào (chỉ SharedKernel + BCL)
+- [ ] Application dùng port qua DI, **không** `new` implementation cụ thể
+- [ ] Controllers **không** đụng `DbContext` trực tiếp — luôn qua Application layer
+- [ ] Không có module A reference project của module B
+- [ ] Cross-module call đi qua interface đặt ở bên "chủ động gọi" (ví dụ `Recruitment.Application.IApplicationScreeningTrigger`)
 
-## 1. Ba việc làm trước khi đọc dòng code nào
+## 2. PII và bảo mật (RB3, RB8)
 
-1. **Đọc issue được liên kết.** Không biết PR định giải quyết gì thì không thể biết nó giải
-   quyết đúng hay chưa. PR không có `Closes #N` → yêu cầu bổ sung, chưa review.
-2. **Xem CI đã xanh chưa.** CI đỏ thì trả lại ngay, đừng review. Người review không phải là
-   trình biên dịch.
-3. **Ước lượng thời gian cần bỏ ra.** Nhóm không giới hạn kích thước PR, nên PR có thể rất dài.
-   PR dài thì dành đủ thời gian đọc, hoặc hẹn tác giả đi qua cùng nhau — đừng lướt rồi approve.
+- [ ] Nếu PR đụng AI: mọi method AI chỉ nhận `AnonymizedCv`, **không** `string` hay `Cv` thô
+- [ ] Không log CV text, tên ứng viên, SĐT, email
+- [ ] Nếu PR đụng phân quyền: Ứng viên chỉ đọc/ghi dữ liệu của mình (`candidate_id = current_user.candidate_id`)
+- [ ] Nếu PR đụng phân quyền: HR chỉ thao tác trên tin mà mình là owner
+- [ ] Không có endpoint nào trả về `password_hash` hay token trong response body
 
----
+## 3. Domain modeling
 
-## 2. Ba câu hỏi áp cho mọi PR
+- [ ] Entity có identity (Id), Value Object không có Id và immutable
+- [ ] Constructor entity **private** hoặc **factory method** — không cho new bừa
+- [ ] Invariant được kiểm tra trong constructor/setter, không phải ở Application
+- [ ] State machine (`Application`) chỉ thay đổi qua method có tên rõ ràng (`MoveToScreening()`)
+- [ ] Không có setter public cho property nghiệp vụ
 
-| Câu hỏi | Vì sao quan trọng |
-|---|---|
-| **Code này có làm đúng thứ issue yêu cầu không?** | Lỗi phổ biến nhất không phải code sai, mà là code đúng cho một bài toán khác |
-| **Có làm hỏng ranh giới kiến trúc không?** | Xem mục 3 — đây là thứ đắt nhất để sửa về sau |
-| **Sáu tháng nữa đọc lại có hiểu không?** | Tên biến, tên hàm, và những chỗ *cần comment mà không có* |
+## 4. Async & CancellationToken
 
----
+- [ ] Mọi method I/O đều `async` + hậu tố `Async`
+- [ ] `CancellationToken` là tham số **cuối cùng** của method async
+- [ ] Không `.Result` / `.Wait()` — luôn `await`
+- [ ] Không quên truyền `CancellationToken` xuống dưới
 
-## 3. Ranh giới kiến trúc — luôn phải kiểm
+## 5. EF Core
 
-Đây là phần **quan trọng nhất** của review trong dự án này, vì `ATS.Tests` chỉ bắt được một phần,
-phần còn lại phải do mắt người bắt.
+- [ ] Không trả `IQueryable` ra khỏi Repository
+- [ ] `AsNoTracking()` cho query chỉ đọc
+- [ ] Không N+1: `Include` khi cần, hoặc `Select` DTO
+- [ ] Migration có tên rõ ràng (`20260920_AddCvIsDefault`)
+- [ ] Không sửa migration đã merge vào main — luôn tạo migration mới
 
-- [ ] Tầng trên gọi tầng dưới, **không có chiều ngược lại**. `ATS.Data` không được biết gì về
-      `ATS.Business`; `ATS.Business` không được biết gì về `ATS.Api`.
-- [ ] Module này **không gọi thẳng vào lớp `internal` của module khác** — phải đi qua interface
-      công khai trong `ATS.Contracts`.
-- [ ] **Không có kiểu dữ liệu của hạ tầng rò rỉ lên tầng nghiệp vụ**: không thấy `DbContext`,
-      `IQueryable`, `HttpContext`, `IFormFile`, hay kiểu của SDK nhà cung cấp AI trong
-      `ATS.Business`.
-- [ ] **Entity của EF Core không bị trả thẳng ra ngoài API** — phải map sang DTO trong
-      `ATS.Contracts` (nếu không, đổi lược đồ CSDL là vỡ hợp đồng API).
-- [ ] Thay đổi `ATS.Contracts` đã được báo cả nhóm và có **2 approve** chưa.
+## 6. Testing
 
----
+- [ ] Handler nghiệp vụ có unit test (mock repo, mock port)
+- [ ] Test chạy < 5 giây tổng thể (nếu chậm hơn: có thể có test đang gọi mạng thật)
+- [ ] Test không đụng OpenAI thật (dùng `FakeAiScoringAdapter`)
+- [ ] Test không đụng database thật (dùng in-memory hoặc Testcontainers cho integration test)
 
-## 4. Danh sách kiểm theo từng tầng
+## 7. API design
 
-### 4.1. `ATS.Data` — dữ liệu và hạ tầng (PR của TV1, TV2 review)
+- [ ] Endpoint follow REST convention: `POST /resources`, `GET /resources/{id}`, không `POST /doSomething`
+- [ ] Trả HTTP status đúng: 200 OK, 201 Created, 202 Accepted (cho async), 400 Bad Request, 404, 409 Conflict
+- [ ] Error response có shape thống nhất: `{ "error": "...", "details": [...] }`
+- [ ] Không leak stack trace ra client
+- [ ] Có validation cho input (FluentValidation hoặc DataAnnotations)
 
-- [ ] Migration có **tương ứng đúng** với thay đổi entity không — và có **chạy ngược được**
-      (`Down`) không?
-- [ ] Quan hệ và ràng buộc: khoá ngoại, `required`, độ dài chuỗi, hành vi khi xoá
-      (`OnDelete`) có đúng nghiệp vụ không? Xoá một tin tuyển dụng có làm bay theo cả lượt
-      ứng tuyển của ứng viên không?
-- [ ] Có **index** cho cột thường xuyên lọc/sắp xếp (trạng thái ứng tuyển, ngày tạo, khoá ngoại)?
-- [ ] Truy vấn có dính **N+1** không: vòng lặp bên trong có gọi lại CSDL không, có thiếu
-      `Include` không?
-- [ ] Truy vấn chỉ đọc có `AsNoTracking()` không?
-- [ ] Có ai đó vô tình `.ToList()` sớm rồi mới `.Where()` trên bộ nhớ không?
+## 8. Frontend (Blazor)
 
-### 4.2. `ATS.Business` / `ATS.Api` — nghiệp vụ và API (PR của TV2, TV3 review)
+- [ ] Không gọi API trực tiếp từ Razor page — qua service class
+- [ ] Loading state cho request > 500ms
+- [ ] Error handling: hiện toast/alert, không crash trắng màn
+- [ ] Component có thể tái sử dụng đặt trong `Shared/`
+- [ ] Không hardcode URL — dùng config
 
-- [ ] **Quy tắc nghiệp vụ nằm trong `ATS.Business`, không nằm trong controller.** Controller
-      phải mỏng: nhận, gọi service, trả kết quả.
-- [ ] Chuyển trạng thái tuyển dụng có đi đúng state machine không — có đường tắt nào cho phép
-      nhảy từ *Mới nộp* thẳng sang *Đã tuyển* không?
-- [ ] **Phân quyền**: endpoint mới đã gắn `[Authorize]` với đúng vai trò chưa? HR của bộ phận
-      này có xem được ứng viên của bộ phận khác không?
-- [ ] Dữ liệu vào đã được **validate** chưa, và lỗi trả về có mã HTTP đúng không
-      (400 vs 404 vs 409)?
-- [ ] Thông báo lỗi trả cho client có **rò rỉ chi tiết nội bộ** không (stack trace, tên bảng,
-      chuỗi kết nối)?
-- [ ] Thao tác ghi nhiều bảng có nằm trong **một transaction** không?
+## 9. Naming & readability
 
-### 4.3. `ATS.Web` — giao diện (PR của TV3, TV2 review)
+- [ ] Tên class/method đọc ra ngữ nghĩa: `ScreeningTriggerAdapter` chứ không `Adapter1`
+- [ ] Không comment thừa (`// increment i by 1`)
+- [ ] Method dài > 40 dòng: cân nhắc tách
+- [ ] File > 300 dòng: cân nhắc tách
+- [ ] Không tiếng Việt trong tên biến/class, chỉ tiếng Việt trong comment giải thích nghiệp vụ phức tạp
 
-- [ ] Có xử lý đủ **ba trạng thái**: đang tải / rỗng / lỗi? Hay chỉ vẽ được trường hợp đẹp?
-- [ ] Khi API trả lỗi, người dùng **thấy gì**? Màn hình trắng là không đạt.
-- [ ] Có **quy tắc nghiệp vụ bị nhét vào giao diện** không (tính điểm, quyết định trạng thái)?
-      Giao diện chỉ hiển thị và thu thập.
-- [ ] Nút gửi có bị **bấm hai lần tạo hai bản ghi** không?
-- [ ] Với màn hình sàng lọc: có hiển thị rõ **trạng thái đang chấm / chưa chấm / không chấm
-      được** không (xem `architecture.md` ADR-02)? Có lối để HR **mở CV gốc** không?
+## 10. Git hygiene
 
-### 4.4. `ATS.AI` — trợ lý sàng lọc (PR của TV4, TV1 review)
+- [ ] Commit message follow convention (`feat: add cv upload`, `fix: null ref in ...`, xem `CONTRIBUTING.md`)
+- [ ] PR mô tả: **What** + **Why**, không chỉ paste diff
+- [ ] Không commit file bí mật (`.env`, `appsettings.Development.json` với API key)
+- [ ] Không commit `bin/`, `obj/`, `node_modules/`, file upload người dùng
 
-- [ ] **Bước ẩn danh có chắc chắn chạy trước mọi lời gọi ra ngoài không?** Đây là mục kiểm
-      nghiêm trọng nhất trong toàn bộ tài liệu này — rò rỉ CCCD/SĐT của ứng viên ra API bên
-      ngoài vừa vi phạm dữ liệu cá nhân, vừa rơi đúng một trong 8 tình huống AI **không đạt**
-      của học phần.
-- [ ] Có **fallback** khi nhà cung cấp lỗi không, và fallback đã được test chưa?
-- [ ] Có **cache theo khoá bất biến** (hash CV + hash JD + phiên bản prompt + mã mô hình) không?
-      Thiếu cache là đốt tiền thật.
-- [ ] Retry có **giới hạn số lần** và có phân biệt lỗi tạm thời với lỗi vĩnh viễn không?
-      Retry một CV hỏng 3 lần là trả tiền 3 lần cho cùng một thất bại.
-- [ ] Prompt có được **ghi kèm phiên bản** không (để giải thích được vì sao điểm hôm nay khác
-      hôm qua)?
-- [ ] Test có chạy được **không cần mạng và không cần API key** không (dùng `FakeScoringAdapter`)?
+## 11. Trước khi bấm Merge
 
-### 4.5. `docker/`, `.github/` — hạ tầng (PR của TV1, TV4 review)
-
-- [ ] Có bí mật nào bị hardcode trong `Dockerfile` / `docker-compose.yml` / workflow không?
-- [ ] Ảnh Docker có ghim phiên bản cụ thể không (`postgres:16-alpine`, không dùng `latest`)?
-- [ ] Dữ liệu CSDL và file CV có nằm trên **volume** không — hay `docker compose down` là mất sạch?
+- [ ] CI xanh (build + test + ArchitectureTests)
+- [ ] Ít nhất 1 approval
+- [ ] Không có `TODO:` chưa xử lý ở phần nghiệp vụ chính (TODO ở polish thì OK, ghi issue)
+- [ ] Reviewer đã đọc code, không chỉ approve theo phong trào
 
 ---
 
-## 5. Không cần review những thứ này
+## Mẫu comment thường dùng
 
-Để dành sức cho thứ đáng đọc:
+- **nit:** Không quan trọng, có thể sửa hoặc bỏ qua
+- **suggestion:** Đề xuất cải tiến nhưng không chặn merge
+- **question:** Hỏi để hiểu, chưa chắc là vấn đề
+- **must:** Phải sửa trước khi merge
+- **arch:** Vấn đề ranh giới kiến trúc — phải sửa
+- **security:** Vấn đề bảo mật — phải sửa
 
-- **Định dạng code, khoảng trắng, thứ tự `using`.** Đó là việc của `dotnet format` và
-  `.editorconfig`, không phải việc của người.
-- **Gu đặt tên khi cả hai cách đều ổn.** Nếu muốn nói, dùng `[góp ý]` và đừng chặn merge.
-- **Viết lại theo cách mình thích.** Câu hỏi là "code này có đúng và có dễ bảo trì không",
-  không phải "mình có viết như thế này không".
+## Ví dụ
 
----
+```
+[must] Method `ScoreAsync` nhận `string cvText` — theo ADR-3 phải là `AnonymizedCv`.
+       Sửa signature và thêm test.
 
-## 6. Viết comment thế nào
+[arch] `JobController` đang inject `AtsDbContext` trực tiếp. Chuyển sang `IJobService`
+       ở Application layer.
 
-Dùng tiền tố mức độ đã quy ước trong mẫu PR: `[blocking]` · `[nên sửa]` · `[góp ý]` · `[hỏi]`.
-
-**Nói vào code, đừng nói vào người.** So sánh:
-
-> ❌ "Em viết cái này ẩu quá."
->
-> ✅ `[blocking]` Chỗ này nếu `cvText` rỗng (PDF ảnh scan không trích được text) thì
-> `ScoreAsync` sẽ ném `ArgumentException` và cả lô 300 CV dừng lại. Nên bỏ qua CV đó, ghi log,
-> và đánh dấu `SummaryStatus = Unavailable`.
-
-Comment tốt có ba phần: **chuyện gì xảy ra** → **trong tình huống nào** → **đề xuất làm gì**.
-Comment như trên còn có tác dụng phụ rất có lợi: đó chính là **minh chứng code review** mà
-giảng viên sẽ đọc. Một PR có 3 comment kiểu này giá trị hơn 30 PR chỉ có chữ "LGTM".
-
-**Có gì tốt thì cũng nói.** Review chỉ toàn lỗi sẽ làm người ta ngại mở PR, mà nhóm còn phải
-làm chung 10 tuần.
-
----
-
-## 7. Người mở PR ứng xử thế nào
-
-- **Trả lời từng comment**, kể cả khi chỉ để nói "đã sửa" hoặc "xin giữ nguyên vì…". Push đè
-  im lặng khiến người review phải đọc lại từ đầu.
-- **Không đồng ý thì phản biện**, đừng sửa cho xong. Người review có thể sai — họ không thạo
-  tầng của bạn bằng bạn.
-- **Đừng nhận comment là công kích cá nhân.** Review nhắm vào code.
-- Sửa xong thì **bấm re-request review**, đừng đợi người kia tự phát hiện.
-
----
-
-## 8. Kiểm tra minh chứng — cuối mỗi tuần, TV1 làm
-
-Đây là phần chấm điểm, không phải phần kỹ thuật. Cuối tuần, nhóm trưởng soát:
-
-- [ ] Tuần này có **≥ 1 PR đã merge cho mỗi thành viên** không? Ai không có PR nào là dấu hiệu
-      tắc dây chuyền hoặc đang commit chui.
-- [ ] Có PR nào được approve mà **không có một comment nội dung nào** không? Approve trắng lặp
-      lại nhiều lần sẽ bị nhìn ra ngay khi chấm.
-- [ ] Reviewer có **phân bố đều** không, hay tất cả PR đều do một người approve?
-- [ ] Có commit nào vào thẳng `develop`/`main` mà không qua PR không? GitHub tự thêm `(#N)` vào
-      cuối tiêu đề commit khi squash-merge một PR, nên lệnh dưới đây liệt kê những commit **không**
-      đến từ PR nào — kết quả lý tưởng là rỗng:
-
-      git log --first-parent develop --format='%s' | grep -v '(#[0-9]\+)$'
-- [ ] Mọi PR đã merge đều đóng đúng issue của nó chưa?
-
-Đưa kết quả soát này vào phần *Vướng mắc* của worklog nếu có vấn đề — đừng để dồn tới tuần 10.
+[suggestion] Có thể extract phần retry logic thành `RetryPolicy` để dùng lại ở
+             `OpenAiInterviewQuestionAdapter`.
+```

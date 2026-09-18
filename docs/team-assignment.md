@@ -1,66 +1,104 @@
-# Phân công nhóm — theo tầng kiến trúc
+# Phân công nhóm
 
-## Nguyên tắc
+> Cập nhật tuần 1, điều chỉnh khi cần.
 
-Nhóm **không** chia mỗi người một module nghiệp vụ. Mỗi thành viên sở hữu trọn **một tầng**
-trong kiến trúc nhiều lớp và làm phần tầng đó cho *mọi* chức năng.
+Nhóm chia theo **module ownership** (không phải theo layer). Mỗi người **sở hữu chính** một
+mảng nhưng vẫn tham gia review và pair-program ở mảng khác.
 
-```
-Chức năng "Ứng tuyển"   ──┐
-Chức năng "Quản lý CV"  ──┼── mỗi chức năng đi xuyên qua cả 4 tầng
-Chức năng "Sàng lọc AI" ──┘
-```
+## 1. Bảng phân công
 
-**Lý do:**
-
-1. Ranh giới sở hữu trùng ranh giới kiến trúc → việc tách lớp được thực thi bằng phân công.
-2. Mỗi người làm trong một thư mục project riêng → hạn chế xung đột mã nguồn.
-3. Mỗi người có một chuyên môn sâu để trả lời khi phản biện.
-4. Không nhóm chức năng nào bị bỏ quên, kể cả *Báo cáo & thống kê*.
-
-**Cái giá phải trả:** mỗi chức năng đi qua tay 3 người → nguy cơ tắc dây chuyền.
-Chặn bằng **contract-first** (xem [contracts.md](contracts.md)).
-
-## Bảng phân công
-
-| Thành viên | Vai trò | Project sở hữu | Chịu trách nhiệm cuối cùng về |
+| Thành viên | Vai trò chính | Module sở hữu | Layer đảm trách xuyên suốt |
 |---|---|---|---|
-| **TV1** — Hoạt | Nhóm trưởng / Kiến trúc & Hạ tầng dữ liệu | `ATS.Data`, `docker/`, `.github/` | Mô hình CSDL, entity, EF Core, migration, repository, tối ưu truy vấn; quản lý repository, CI/CD, Docker, triển khai demo |
-| **TV2** — Tuấn Anh | Nghiệp vụ & API | `ATS.Business`, `ATS.Api` | Quy tắc nghiệp vụ, service, validation, state machine tuyển dụng, phân quyền nghiệp vụ; controller, DTO mapping, xử lý lỗi, Swagger |
-| **TV3** — Hùng | Giao diện & Trải nghiệm | `ATS.Web` | Toàn bộ Blazor: layout, routing, component dùng chung, form, bảng dữ liệu, gọi API, xử lý lỗi phía client, dashboard |
-| **TV4** — Tiền | AI & Chất lượng | `ATS.AI`, `ATS.Tests` | Pipeline AI 7 bước, prompt, **host worker + retry + dead-letter**, các adapter nhà cung cấp, fallback 3 cấp, ước tính chi phí; chiến lược kiểm thử, **test ranh giới kiến trúc**, test tích hợp & E2E |
+| **TV1** | Kiến trúc & Data | Cấu trúc solution + Infrastructure chung | SharedKernel, EF DbContext, migration, docker-compose, CI |
+| **TV2** | Backend Business | Recruitment + Identity | Domain + Application + API cho 2 module này |
+| **TV3** | Frontend | ATS.Web | Blazor Server, UI Ứng viên & HR |
+| **TV4** | AI & Test | AiScreening | Toàn bộ module AI + ArchitectureTests + AI integration tests |
 
-> Điền đủ **họ tên + MSSV + tài khoản GitHub** để đối chiếu lịch sử commit/PR khi chấm.
+## 2. Chi tiết theo tuần
 
-## Người dự phòng
+### TV1 — Kiến trúc & Data
 
-| Mảng | Người chính | Người dự phòng |
-|---|---|---|
-| Dữ liệu & hạ tầng | TV1 | TV2 |
-| Nghiệp vụ & API | TV2 | TV1 |
-| Giao diện | TV3 | TV2 |
-| AI | TV4 | TV1 |
+- Tuần 1: `architecture.md`, `database-design.md`
+- Tuần 2: `.sln` structure, SharedKernel, migration đầu, docker-compose, CI
+- Tuần 3–5: EF entity configurations, repositories, `LocalFileStorage`
+- Tuần 6: Redis client, ATS.Worker skeleton
+- Tuần 7–8: hỗ trợ TV4 với repository của AiScreening
+- Tuần 9: query báo cáo, dashboard
+- Tuần 10: deploy, seed data, video demo
 
-Người dự phòng đọc hiểu mã nguồn của mảng đó và theo dõi thay đổi liên quan, không cần viết code
-khi mọi việc bình thường.
+### TV2 — Backend Business
 
-## Đo đóng góp cá nhân
+- Tuần 1: `use-cases.md`, `contracts.md`
+- Tuần 2: ATS.Api skeleton, Swagger, auth middleware
+- Tuần 3: Identity — Register/Login handlers, JWT
+- Tuần 4: Recruitment — JobService, CvService
+- Tuần 5: ApplicationService, apply flow
+- Tuần 6: API cho AiScreening (screening-jobs, score-preview)
+- Tuần 7: hỗ trợ TV4 tích hợp OpenAI adapter
+- Tuần 8: Interview + Evaluation handlers
+- Tuần 9: hỗ trợ TV3 wiring API-UI
+- Tuần 10: bug fix, slide bảo vệ
 
-- Mọi việc phải là **issue có assignee**, gắn nhãn `layer:data` / `layer:api` / `layer:web` /
-  `layer:ai` và milestone theo tuần.
-- Mỗi tuần mỗi người cập nhật [worklog](worklog/) của mình.
-- Buổi demo cuối: chọn **một chức năng xuyên suốt**, mỗi người trình bày phần tầng của mình.
-- Cuối mỗi tuần mỗi người **trình bày 5 phút** cho cả nhóm về việc tầng mình.
+### TV3 — Frontend
 
-## Rủi ro riêng của cách chia theo tầng
+- Tuần 1: wireframe (Figma/excalidraw)
+- Tuần 2: Blazor Server skeleton, layout, routing, auth
+- Tuần 3: đăng ký/đăng nhập 2 vai
+- Tuần 4: UI upload CV, list CV, đăng tin (HR)
+- Tuần 5: UI apply — chọn CV
+- Tuần 6: UI progress bar sàng lọc, danh sách xếp hạng
+- Tuần 7: UI score-preview cho ứng viên
+- Tuần 8: UI hẹn phỏng vấn + AI gợi ý câu hỏi
+- Tuần 9: dashboard, polish
+- Tuần 10: mobile responsive nếu còn thời gian
 
-| Rủi ro | Cách chặn |
-|---|---|
-| Tắc dây chuyền: tầng dưới chậm thì tầng trên đứng | Contract-first tuần 2 + mock/stub bắt buộc |
-| TV3 chưa có API để gọi trong tuần 1–3 | Dựng khung Blazor + component dùng chung trên dữ liệu giả |
-| TV2 quá tải (nghiệp vụ của cả 5 module) | Giữ controller mỏng; TV1 hỗ trợ từ tuần 6 |
-| Không ai nhìn thấy toàn cảnh | Mỗi tuần một buổi *walkthrough* dọc một chức năng qua cả 4 tầng |
-| Thầy hỏi thành viên X về AI mà X không biết | Trình bày chéo 5 phút/tuần |
-| **TV4 phình việc**: ngoài pipeline AI còn phải dựng host worker, retry, dead-letter, các adapter, *và* toàn bộ kiểm thử | Tuần 6 TV1 làm phần hạ tầng hàng đợi (`IScreeningQueue` + cấu hình Redis), TV4 chỉ lo phần AI bên trong worker. Cắt bớt adapter theo đường lùi trong [weekly-plan.md](weekly-plan.md) nếu trễ |
-| **TV1 phình việc ở tuần 8**: 5 container thay vì 2, thêm worker và Redis | Chia làm ba nhịp — tuần 2 dựng `db`+`queue`, tuần 6 dựng worker, tuần 8 chỉ ghép lại và deploy. Không dồn Docker vào một tuần |
-| **Phạm vi vượt sức 10 tuần** | Đường lùi đã quyết định sẵn trong [weekly-plan.md](weekly-plan.md): cắt theo thứ tự đã ghi, không cắt tuỳ hứng lúc gấp |
+### TV4 — AI & Test
+
+- Tuần 1: `ai-integration.md`, prompt v1, chi phí
+- Tuần 2: ArchitectureTests với NetArchTest
+- Tuần 3–4: hỗ trợ review, viết test cho các module khác
+- Tuần 5: `SimpleAnonymizer`, unit test PII
+- Tuần 6: `FakeAiScoringAdapter`, `IScreeningQueue` interface, ProcessScreeningHandler
+- Tuần 7: `OpenAiScoringAdapter`, `EmbeddingScoringAdapter`, `KeywordScoringAdapter`, `AiScoringPipeline`
+- Tuần 8: `OpenAiInterviewQuestionAdapter`, `TemplateInterviewQuestionAdapter`
+- Tuần 9: snapshot tests, integration tests
+- Tuần 10: video demo AI flow, tài liệu prompt
+
+## 3. Quy tắc làm việc
+
+### Ownership
+
+- Mỗi module có 1 owner. PR đụng module đó phải có owner review.
+- Owner không có nghĩa "chỉ mình được sửa" — người khác vẫn làm được, chỉ cần owner duyệt.
+
+### Review
+
+- Mỗi PR cần **ít nhất 1 review approval** trước khi merge (thấy `.github/CODEOWNERS`).
+- PR đụng ArchitectureTests → TV4 review bắt buộc.
+- PR đụng database migration → TV1 review bắt buộc.
+
+### Chuẩn communication
+
+- Daily standup 15 phút mỗi sáng (async trong Discord/Zalo cũng được)
+- Weekly sync 1 giờ mỗi chủ nhật để chốt kế hoạch tuần
+- Blocker > 4 giờ → tag cả nhóm
+
+### Nếu team thành viên rớt
+
+Contract-first design (mọi interface đóng ở tuần 3) cho phép 3 người vẫn hoàn thành:
+- TV1 → gánh Infrastructure chung
+- TV2 → gánh Business
+- TV3 → gánh UI **hoặc** TV4 gánh AI (chọn 1 để cắt)
+
+Nếu mất TV3: dùng Swagger UI, cắt Blazor.
+Nếu mất TV4: giữ Fake adapter, cắt OpenAI real integration (đây là thảm họa nhưng vẫn có kiến trúc).
+
+## 4. Chấm điểm nội bộ
+
+Cuối kỳ, nhóm tự chấm điểm đóng góp theo:
+- Số PR merge được
+- Số dòng code có ý nghĩa (không tính generated)
+- Chất lượng code review nhận được từ người khác
+- Tham gia họp
+
+Kết quả tự chấm nộp cho giảng viên trong báo cáo cuối kỳ.

@@ -42,7 +42,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       args:
-        PROJECT: ATS.Api
+        PROJECT_PATH: src/Hosts/ATS.Api
+        PROJECT_DLL: ATS.Api.dll
     depends_on:
       db:
         condition: service_healthy
@@ -52,6 +53,8 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
       Redis__ConnectionString: "queue:6379"
       FileStorage__RootPath: "/app/data/cvs"
+      OpenAI__ApiKey: "${OPENAI_API_KEY}"
+      AiProvider: "${AI_PROVIDER:-Fake}"
     volumes:
       - cv-files:/app/data/cvs
     ports:
@@ -64,7 +67,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       args:
-        PROJECT: ATS.AI
+        PROJECT_PATH: src/Hosts/ATS.Worker
+        PROJECT_DLL: ATS.Worker.dll
     depends_on:
       db:
         condition: service_healthy
@@ -87,7 +91,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       args:
-        PROJECT: ATS.Web
+        PROJECT_PATH: src/Hosts/ATS.Web
+        PROJECT_DLL: ATS.Web.dll
     depends_on:
       - api
     environment:

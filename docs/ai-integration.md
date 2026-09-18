@@ -1,134 +1,218 @@
 # Tích hợp AI
 
-> TV4 phụ trách tài liệu này. Bản nháp nộp tuần 2, hoàn chỉnh tuần 7.
+> TV4 phụ trách. Cập nhật tuần 5–8.
 
-## 1. Sáu câu hỏi bắt buộc
+Hệ thống có **2 năng lực AI**, cả hai đứng sau Port (xem `architecture.md` ADR-3):
 
-| Câu hỏi | Trả lời |
-|---|---|
-| **Ai sử dụng?** | Nhân viên tuyển dụng (HR) và nhà tuyển dụng |
-| **Giải quyết vấn đề gì?** | Đọc và so khớp hàng trăm CV thủ công tốn thời gian, dễ bỏ sót ứng viên phù hợp, thiếu nhất quán |
-| **Dữ liệu đầu vào?** | Nội dung CV (PDF/text) và mô tả công việc (JD) |
-| **Kết quả đầu ra?** | Bản tóm tắt CV + điểm phù hợp 0–100 + danh sách ứng viên xếp hạng kèm lý do |
-| **Dùng trong nghiệp vụ nào?** | Bước **sàng lọc hồ sơ** trước khi mời phỏng vấn |
-| **Nếu AI sai thì sao?** | HR luôn thấy CV gốc; điểm AI chỉ để tham khảo/sắp xếp; quyết định cuối do con người; có nút phản hồi để hiệu chỉnh và ghi log |
+1. **Chấm độ phù hợp CV ↔ JD** — dùng bởi cả HR (sàng lọc lô) và Ứng viên (preview trước khi nộp)
+2. **Sinh câu hỏi phỏng vấn** — dùng bởi HR khi hẹn phỏng vấn
 
-## 2. Mức tích hợp
-
-**Mức 1** — dùng dịch vụ AI có sẵn:
-
-- **Embedding**: `text-embedding-3-small` để so khớp ngữ nghĩa CV–JD qua cosine similarity
-- **LLM**: `gpt-4o-mini` để tóm tắt CV và sinh lý do phù hợp
-
-Có thể mở rộng lên **Mức 2** nếu tiến độ cho phép: hiệu chỉnh một mô hình phân loại độ phù hợp
-trên dữ liệu CV đã gán nhãn.
-
-## 3. Pipeline 7 bước
-
-| Bước | Việc | Kỹ thuật |
-|---|---|---|
-| 1 | Trích xuất text từ CV | PdfPig |
-| 2 | Ẩn danh dữ liệu nhạy cảm | Regex + rule (CCCD, SĐT, email, địa chỉ) |
-| 3 | Rút trường có cấu trúc | LLM hoặc rule (kỹ năng, kinh nghiệm, học vấn) |
-| 4 | Sinh vector embedding | `text-embedding-3-small` |
-| 5 | Tính độ tương đồng CV × JD | Cosine similarity → chuẩn hoá về 0–100 |
-| 6 | Sinh tóm tắt + lý do | `gpt-4o-mini` |
-| 7 | Xếp hạng ứng viên | Sắp xếp theo điểm |
-
-**Vì sao kết hợp embedding + LLM chứ không dùng riêng LLM:** embedding cho điểm số ổn định,
-rẻ và có thể so sánh giữa các ứng viên; LLM giải thích được lý do nhưng đắt và không nhất quán
-nếu dùng để chấm điểm. Kết hợp cho cả hai: điểm khách quan + lý do dễ hiểu.
-
-## 4. Prompt
-
-### Tóm tắt CV
+## 1. Pipeline chấm phù hợp
 
 ```
-(dán system prompt + user prompt tại đây, kèm giải thích vì sao viết như vậy)
+Input: rawCv (text từ PDF/DOCX) + JobRequirement (JD)
+   │
+   ▼
+[1] Trích xuất text từ CV file (PdfPig / OpenXml)
+   │
+   ▼
+[2] Anonymize: bỏ tên, SĐT, email, địa chỉ, tên trường/công ty cụ thể
+   │  → AnonymizedCv (value object, compile-time guarantee)
+   │
+   ▼
+[3] Tính CacheKey = SHA256(cvText, jdText, modelVersion, promptVersion)
+   │  → Check cache. Có → trả ngay.
+   │
+   ▼
+[4] AiScoringPipeline.ScoreAsync(anonymizedCv, jd):
+   │
+   │   Adapter 1: OpenAiScoringAdapter
+   │     └─ gpt-4o-mini, structured output
+   │     └─ retry 3 lần với exponential backoff
+   │     └─ fail → Adapter 2
+   │
+   │   Adapter 2: EmbeddingScoringAdapter
+   │     └─ text-embedding-3-small, cosine similarity
+   │     └─ score = round(similarity * 100)
+   │     └─ summary = template
+   │     └─ fail → Adapter 3
+   │
+   │   Adapter 3: KeywordScoringAdapter (LUÔN chạy được)
+   │     └─ đếm keyword từ JD.RequiredSkills có trong CV
+   │     └─ score = matchedCount / totalRequired * 100
+   │
+   ▼
+[5] Lưu AiScore (application_id, score, summary, adapter_used, cache_key)
+   │
+   ▼
+Output: ScreeningResult(Score, Summary, Strengths, Gaps, AdapterUsed)
 ```
 
-### Sinh lý do phù hợp
+## 2. Prompt (v1)
+
+### 2.1. Chấm phù hợp — `prompts/scoring-v1.txt`
 
 ```
-(dán prompt tại đây)
+Bạn là chuyên gia tuyển dụng. Chấm điểm mức độ phù hợp giữa CV và mô tả công việc,
+theo thang 0-100. Trả về JSON strict:
+
+{
+  "score": <0-100>,
+  "summary": "<1-2 câu tổng kết>",
+  "strengths": ["<điểm mạnh 1>", "<điểm mạnh 2>", ...],
+  "gaps": ["<kỹ năng thiếu 1>", ...]
+}
+
+Quy tắc chấm:
+- 90-100: khớp hoàn toàn, có thể vào phỏng vấn ngay
+- 70-89: khớp phần lớn, thiếu 1-2 kỹ năng phụ
+- 50-69: khớp một nửa, cần training
+- <50: không phù hợp
+
+Không được nêu tên riêng của ứng viên hoặc công ty trong summary.
+Không được đề xuất mức lương.
+
+--- CV (đã ẩn danh) ---
+{{cv_text}}
+
+--- JD ---
+Vị trí: {{job_title}}
+Yêu cầu: {{job_requirements}}
+Kỹ năng bắt buộc: {{required_skills}}
+Kỹ năng ưu tiên: {{nice_to_have_skills}}
+Kinh nghiệm tối thiểu: {{min_years}} năm
 ```
 
-**Chống hallucination:** yêu cầu mô hình chỉ dùng thông tin có trong CV, trả về "không rõ" khi
-thiếu dữ liệu, và cấm suy diễn kinh nghiệm không được nêu.
+### 2.2. Sinh câu hỏi phỏng vấn — `prompts/questions-v1.txt`
 
-## 5. Fallback khi AI lỗi
+```
+Bạn là chuyên gia phỏng vấn. Dựa trên CV (đã ẩn danh) và JD, sinh 8-12 câu hỏi phỏng vấn.
+Chia làm 3 nhóm:
+- technical (5-7 câu): kiểm tra kỹ năng chuyên môn cụ thể có trong CV & JD
+- behavioral (2-3 câu): kiểm tra soft skill, kinh nghiệm làm việc nhóm
+- situational (1-2 câu): tình huống cụ thể khi làm ở vị trí này
 
-Fallback **ba cấp**, khớp với ADR-02 trong `architecture.md`:
+Trả về JSON strict:
+{
+  "questions": [
+    {"category": "technical", "question": "..."},
+    ...
+  ]
+}
 
-| Cấp | Khi nào | Hệ thống làm gì | HR thấy gì |
-|---|---|---|---|
-| **1** | Bình thường | Embedding + cosine → điểm; LLM → tóm tắt + lý do | Điểm + tóm tắt đầy đủ |
-| **2** | LLM lỗi/hết credit | **Vẫn chấm điểm** bằng embedding + cosine, ghi `SummaryStatus = Unavailable` | Vẫn có điểm và xếp hạng, chỉ thiếu tóm tắt |
-| **3** | Cả embedding cũng hỏng | Lùi về so khớp từ khoá, đánh dấu độ tin cậy thấp | Gợi ý thô kèm cảnh báo |
+Quy tắc:
+- Không câu hỏi yes/no
+- Câu hỏi phải bám sát kỹ năng ứng viên đã ghi trong CV (đừng hỏi thứ họ không đề cập)
+- Không hỏi thông tin cá nhân, tuổi tác, tôn giáo, hôn nhân
+- Câu hỏi bằng tiếng Việt
 
-Xử lý theo loại lỗi:
+--- CV (đã ẩn danh) ---
+{{cv_text}}
 
-| Tình huống | Xử lý |
-|---|---|
-| Timeout, 429, 5xx (lỗi **tạm thời**) | Retry tối đa **3 lần**, backoff luỹ thừa + jitter |
-| PDF hỏng, không trích được text (lỗi **vĩnh viễn**) | **Không retry** — vào dead-letter kèm lý do. Thử lại chỉ tốn tiền |
-| API sập kéo dài | Đổi `AI_PROVIDER` sang adapter khác bằng biến môi trường, không sửa code |
-| Kết quả vô lý | HR bấm nút phản hồi, hệ thống ghi log kèm `PromptVersion` để rà lại |
+--- JD ---
+Vị trí: {{job_title}}
+Yêu cầu: {{job_requirements}}
+```
 
-**Hai nguyên tắc:**
+## 3. Ẩn danh (Anonymizer)
 
-1. Không chức năng nghiệp vụ nào của ATS bị chặn khi dịch vụ AI lỗi — HR vẫn mở CV gốc, vẫn
-   chuyển trạng thái ứng tuyển bình thường.
-2. Vì việc chạy nền qua hàng đợi, lỗi của một CV **không làm hỏng cả lô**: CV đó vào dead-letter,
-   299 CV còn lại vẫn chạy tiếp.
+`SimpleAnonymizer` phase 1 dùng regex:
 
-## 6. Bảo mật dữ liệu
+- Email → `[EMAIL]`
+- SĐT Việt Nam (`0\d{9,10}`, `+84\d{9,10}`) → `[PHONE]`
+- Tên (regex đơn giản: 2-4 từ ghép, viết hoa chữ cái đầu, ở đầu CV) → `[NAME]`
+- Địa chỉ (từ khóa "Địa chỉ:", "Address:") → `[ADDRESS]`
+- Tên trường (từ khóa "Đại học", "University") → `[SCHOOL]` (giữ lại "chuyên ngành X" nếu có)
+- Tên công ty cũ (khó tự động) → **HR duyệt lại tay khi thấy sai**
 
-- Ẩn danh CCCD, số điện thoại, email **trước khi** gửi tới dịch vụ AI.
-- Không gửi file CV gốc lên API bên ngoài, chỉ gửi text đã làm sạch.
-- **Việc ẩn danh được cưỡng chế bằng hệ thống kiểu, không bằng kỷ luật:** `IAiScoringService`
-  nhận `AnonymizedCv` chứ không nhận `string`, nên gọi bằng CV thô là **lỗi biên dịch**. Đây là
-  điểm khác biệt giữa "có quy định phải ẩn danh" và "không thể quên ẩn danh".
-- API key chỉ cấu hình cho **worker** (`ATS.AI`) — `ATS.Api` không bao giờ gọi thẳng LLM nên
-  không cần khoá. Lưu trong user-secrets / biến môi trường, không commit.
+Sau phase 1, `SimpleAnonymizer` sẽ được thay bằng `LlmAnonymizer` — gọi LLM riêng để ẩn danh
+chuẩn hơn (đây là fallback nếu regex không đủ, còn thời gian thì làm).
 
-## 7. Ước tính chi phí
+## 4. Cache & chi phí
 
-Chi phí tỉ lệ thuận với **số lần gọi**, nên phải ước trước chứ không đợi hết credit mới biết.
+### CacheKey
 
-**Khối lượng token cho một lượt chấm một CV:**
+```csharp
+CacheKey = SHA256(
+    normalizedCvText,   // lowercased, whitespace-collapsed
+    normalizedJdText,
+    modelVersion,       // "gpt-4o-mini-2024-07-18"
+    promptVersion       // "scoring-v1"
+)
+```
 
-| Thành phần | Token |
-|---|---|
-| Nội dung CV sau trích xuất và rút gọn | ~1.500 vào |
-| Mô tả công việc (JD) | ~500 vào |
-| Tóm tắt + lý do sinh ra | ~300 ra |
-| **Tổng mỗi lượt** | **~2.000 vào / ~300 ra** |
+Cache lưu ở bảng `ai_scores` (không dùng Redis vì cần persist và join query). Trước khi gọi
+LLM, luôn check `SELECT * FROM ai_scores WHERE cache_key = ?`.
 
-**Suy ra cho cả học phần** (tính cả chạy thử, gỡ prompt, demo lặp): ~3.000 lượt chấm →
-**~6 triệu token vào, ~0,9 triệu token ra**. Với đơn giá `p_in`, `p_out` (USD/1 triệu token),
-chi phí ≈ `6 × p_in + 0,9 × p_out` USD. **Trần ngân sách nhóm tự đặt: 20–30 USD.**
+### Ước lượng chi phí (RB2)
 
-| Hạng mục | Đơn giá thực tế | Số lượng đo được | Thành tiền |
-|---|---|---|---|
-| Embedding | — | — | — |
-| LLM tóm tắt | — | — | — |
-| **Tổng cho toàn dự án** | | | **—** |
+| Loại | Model | Token in | Token out | Giá / 1M | / lần |
+|---|---|---|---|---|---|
+| Chấm phù hợp | gpt-4o-mini | ~1200 | ~250 | in $0.15, out $0.60 | ~$0.0004 |
+| Embedding | text-emb-3-small | ~1500 | 0 | $0.02 | ~$0.00003 |
+| Sinh câu hỏi | gpt-4o-mini | ~1500 | ~800 | in $0.15, out $0.60 | ~$0.0007 |
 
-> TV4 điền cột "thực tế" sau khi đo trên demo cốt lõi tuần 2, rồi so với ước tính ở trên.
+**Ước cả kỳ:**
+- 1000 lượt chấm (có cache tốt) ≈ $0.40
+- 200 lượt sinh câu hỏi ≈ $0.14
+- Test và dev ≈ $5 (dùng FakeAdapter là chính)
+- **Tổng ~ $10–20** — trong ngân sách $20–30.
 
-**Ba cơ chế chặn đốt tiền** (bắt buộc, xem ADR-02):
+### Rate limit
 
-1. **Cache theo khoá bất biến** `hash(CV) + hash(JD) + PromptVersion + ModelVersion` — chấm lại
-   cùng một cặp thì đọc cache, không gọi API. Đây là cơ chế tiết kiệm lớn nhất, vì phần lớn chi
-   phí thật của đồ án đến từ chạy lại khi gỡ lỗi và khi tập demo.
-2. **Retry có giới hạn**, không retry lỗi vĩnh viễn.
-3. **Hạn mức số lượt gọi mỗi ngày**, và ước tính chi phí hiển thị cho HR trước khi chạy một lô.
+- Ứng viên preview: 20 lượt/ngày (soft), 100 lượt/tuần (hard)
+- HR khởi chạy lô: 5 lô/ngày, mỗi lô tối đa 500 hồ sơ
+- Toàn hệ thống: budget alert khi vượt $25 tích lũy
 
-## 8. Kết quả thử nghiệm
+## 5. Fallback 3 tầng — bài học quan trọng
 
-| CV mẫu | JD | Điểm AI | Nhận xét của nhóm |
-|---|---|---|---|
-| CV-01 | | | |
-| CV-02 | | | |
-| CV-03 | | | |
+Nếu chỉ có OpenAI adapter và hết quota, cả hệ thống chết. Fallback 3 tầng đảm bảo **cuối cùng
+luôn có điểm** (dù chất lượng giảm):
+
+| Tầng | Adapter | Có LLM? | Chi phí | Chất lượng |
+|---|---|---|---|---|
+| 1 | OpenAiScoringAdapter | Có | ~$0.0004/lần | Cao |
+| 2 | EmbeddingScoringAdapter | Có (embedding rẻ) | ~$0.00003/lần | Trung bình |
+| 3 | KeywordScoringAdapter | **Không** | $0 | Thấp nhưng có |
+
+Adapter cuối không phụ thuộc mạng, không tốn tiền, không bao giờ fail. Đây là yếu tố sống còn
+của hệ thống — HR không bao giờ thấy màn hình "AI đang lỗi, thử lại sau".
+
+## 6. Testing
+
+- **Unit test**: mock `IAiScoringService` → `FakeAiScoringAdapter` trả điểm cố định (dùng cho
+  test business logic ở Application layer). Test không tốn tiền, chạy < 1s.
+- **Integration test**: gọi thật OpenAI trong CI chỉ trên nhánh `main` (env `OPENAI_API_KEY`),
+  1-2 test smoke để chắc adapter chưa hỏng.
+- **Snapshot test**: lưu 5 cặp (CV, JD) mẫu, so sánh output với snapshot đã duyệt. Rerun khi
+  đổi prompt version.
+
+## 7. Log & observability
+
+Log mỗi lần gọi LLM (KHÔNG log CV text):
+```
+{
+  "event": "ai.scoring",
+  "cache_hit": false,
+  "adapter": "OpenAI",
+  "duration_ms": 1240,
+  "score": 78,
+  "cache_key": "abc123...",
+  "model": "gpt-4o-mini",
+  "prompt_version": "scoring-v1",
+  "cost_estimate_usd": 0.0004
+}
+```
+
+Dashboard đơn giản (Grafana hoặc chỉ query SQL): tổng chi phí ngày, tỉ lệ cache hit, phân phối
+adapter được dùng, latency p95.
+
+## 8. Bảo mật PII (RB3)
+
+- CV thô (`raw_cv_text`) **không được** đưa vào prompt. Chỉ `AnonymizedCv.Text`.
+- Kiểu `AnonymizedCv` có constructor `internal` → chỉ `IAnonymizer` tạo được. Application layer
+  không thể tự "cast" từ string sang AnonymizedCv.
+- ArchitectureTests ép: mọi method trong `Ports/*ScoringService*` và `Ports/*QuestionGenerator*`
+  chỉ nhận `AnonymizedCv`, không nhận `string` hay `Cv`.
+- Prompt hệ thống có câu "Không được nêu tên riêng" — nếu LLM lỡ lộ tên qua Strengths/Gaps thì
+  vẫn có tuyến ẩn danh ở tầng dưới, coi như defense in depth.
