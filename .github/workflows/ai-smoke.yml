@@ -1,0 +1,66 @@
+name: AI smoke test
+
+# CỐ Ý không chạy theo push/pull_request.
+#
+# Gọi OpenAI thật ở mỗi lần merge là sai với đồ án này vì ba lý do:
+#   1. Tốn tiền thật mỗi lần merge — ngân sách cả kỳ chỉ $20–30 (RB2)
+#   2. Test đỏ oan khi OpenAI chậm hoặc rate-limit, không liên quan gì tới code
+#   3. Khoá API phải nằm sẵn trong secrets của một repo sinh viên
+#
+# Thay vào đó: bấm tay khi cần, và tự chạy mỗi thứ Hai để phát hiện adapter hỏng.
+# Chạy trước buổi bảo vệ, và sau mỗi lần đổi prompt version.
+#
+# Xem docs/ai-integration.md mục 6.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 1 * * 1'   # 01:00 UTC thứ Hai hằng tuần
+
+jobs:
+  ai-smoke:
+    runs-on: ubuntu-latest
+    # Không có khoá thì bỏ qua, đừng để job đỏ vô nghĩa.
+    if: github.repository_owner != ''
+
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Kiểm tra đã có solution chưa
+        id: check
+        run: |
+          if ls *.sln src/*.sln >/dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "::notice::Chưa có file .sln — bỏ qua smoke test."
+          fi
+
+      - name: Kiểm tra đã cấu hình OPENAI_API_KEY chưa
+        id: key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "::warning::Chưa đặt secret OPENAI_API_KEY — bỏ qua smoke test."
+          fi
+
+      # Chỉ chạy các test gắn [Trait("Category", "AiSmoke")] — 1-2 test, không phải cả bộ.
+      - name: Smoke test adapter AI thật
+        if: steps.check.outputs.found == 'true' && steps.key.outputs.found == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AiProvider: OpenAI
+        run: |
+          dotnet test --configuration Release \
+            --filter "Category=AiSmoke" \
+            --verbosity normal

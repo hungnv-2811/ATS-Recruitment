@@ -43,11 +43,19 @@
 /docker/                                @tv1-hoat
 /.github/                               @tv1-hoat
 
+# Hai file props này chi phối CẢ 18 project: đổi một dòng là cả solution đổi theo.
+# dotnet-tools.json ghim version dotnet-ef — lệch version là migration của người này
+# không chạy được trên máy người kia.
+/Directory.Build.props                  @tv1-hoat @tv4-tien
+/Directory.Packages.props               @tv1-hoat @tv4-tien
+/dotnet-tools.json                      @tv1-hoat
+
 # ── Tài liệu ────────────────────────────────────────────────────────────
 /docs/architecture.md                   @tv1-hoat
 /docs/database-design.md                @tv1-hoat
 /docs/contracts.md                      @tv2-tuananh
 /docs/use-cases.md                      @tv2-tuananh
+/docs/wireframes.md                     @tv3-hung
 /docs/ai-integration.md                 @tv4-tien
 /docs/weekly-plan.md                    @tv1-hoat
 /docs/team-assignment.md                @tv1-hoat
