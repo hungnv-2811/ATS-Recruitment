@@ -1,0 +1,41 @@
+<Project>
+
+  <!--
+    Central Package Management: version cua MOI package khai bao o day, mot lan.
+    Trong .csproj chi ghi <PackageReference Include="..." /> — KHONG co Version.
+
+    Vi sao: 18 project ma moi project tu ghi version thi som muon cung lech nhau,
+    va loi kieu do chi lo ra luc chay chu khong phai luc build.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Entity Framework Core">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
+    <!--
+      Relational khai bao TUONG MINH du khong project nao goi truc tiep.
+      Npgsql 10.0.3 keo Relational 10.0.4, con EF Design keo 10.0.12 -> MSBuild bao
+      MSB3277 "conflicts between different versions". Ghim o day de ca hai cung dung
+      mot ban. Xoa dong nay thi canh bao quay lai.
+    -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="ASP.NET Core">
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+  </ItemGroup>
+
+</Project>

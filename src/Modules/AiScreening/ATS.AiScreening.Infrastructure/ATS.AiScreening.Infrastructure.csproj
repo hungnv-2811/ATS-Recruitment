@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../ATS.AiScreening.Application/ATS.AiScreening.Application.csproj" />
+    <ProjectReference Include="../../../Shared/ATS.Persistence/ATS.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

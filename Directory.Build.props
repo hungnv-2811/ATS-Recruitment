@@ -1,0 +1,27 @@
+<Project>
+
+  <!--
+    Thuoc tinh dung chung cho MOI project trong solution.
+    Doi phien ban .NET: sua DUY NHAT dong TargetFramework duoi day,
+    roi sua theo 3 cho ngoai code: docker/Dockerfile, .github/workflows/ci.yml,
+    .github/workflows/ai-smoke.yml.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Canh bao = loi. Ky luat nay re khi ap tu dau, dat khi ap vao thang 8. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Khong sinh file .exe cho project thu vien. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RootNamespace>$(MSBuildProjectName)</RootNamespace>
+    <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+  </PropertyGroup>
+
+</Project>

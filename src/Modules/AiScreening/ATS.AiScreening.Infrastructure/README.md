@@ -15,10 +15,21 @@ Adapter thật cho ports của module AI.
 - `OpenAiInterviewQuestionAdapter`
 - `TemplateInterviewQuestionAdapter` — fallback
 
+## PII (phase 2)
+
+- `LlmPiiRedactor` — implement `IPiiRedactor` (chỉ `string` → `string`)
+
+> Không implement `IAnonymizer` ở đây, và không thêm `InternalsVisibleTo`. Assembly này
+> **không được** cầm quyền tạo `AnonymizedCv`. Xem `docs/architecture.md` ADR-3.
+
 ## Queue & Repository
 
 - `RedisScreeningQueue`
-- `EfAiScoreRepository`, `EfScreeningJobRepository`
+- `EfAiScoreRepository` — bảng `ai_scores` (khoá theo `application_id`)
+- `EfAiScoreCacheRepository` — bảng `ai_score_cache` (khoá theo nội dung, **không** có
+  `application_id` — để preview của ứng viên lúc chưa nộp đơn vẫn cache được)
+- `EfAiUsageQuota` — bảng `ai_usage_quotas`, chặn hạn mức (RB2)
+- `EfScreeningJobRepository`
 
 ## Cross-module
 
