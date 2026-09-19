@@ -10,9 +10,10 @@ assignees: ''
 
 <!-- Việc cần làm là gì -->
 
-## Tầng
+## Module / phần
 
-<!-- layer:data | layer:api | layer:web | layer:ai | layer:contracts | layer:devops -->
+<!-- shared | persistence | recruitment | identity | aiscreening | api | worker | web | test | docker | ci | docs -->
+<!-- Giống danh sách phạm vi commit trong CONTRIBUTING.md mục 2 -->
 
 ## Tuần / Milestone
 
@@ -23,7 +24,8 @@ Tuần
 - [ ] Code đã viết và chạy được
 - [ ] Có unit test
 - [ ] CI xanh
-- [ ] Đã có PR được approve và merge vào `develop`
+- [ ] **PR đã có ≥ 1 approve** (PR chạm port/contract: 2 approve)
+- [ ] Đã gộp vào `develop` **qua PR** — không commit thẳng
 - [ ] Đã ghi vào worklog cá nhân
 
 ## Phụ thuộc

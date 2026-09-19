@@ -6,7 +6,15 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+# Push mới vào một PR sẽ huỷ lần chạy cũ còn dở — đỡ xếp hàng chờ khi cả nhóm cùng push.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Đây là status check bắt buộc trong branch protection của `main` và `develop`.
+  # Đổi tên job này thì phải vào Settings → Branches chọn lại check, nếu không
+  # branch protection sẽ chờ một check không bao giờ chạy. Xem CONTRIBUTING.md mục 3.6.
   build-and-test:
     runs-on: ubuntu-latest
 
@@ -14,10 +22,10 @@ jobs:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
 
-      - name: Cài .NET 8
+      - name: Cài .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       # Trước tuần 2 repo chưa có solution — bước này giúp CI không đỏ oan.
       - name: Kiểm tra đã có solution chưa

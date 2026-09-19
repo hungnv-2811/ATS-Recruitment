@@ -8,15 +8,25 @@
 | `develop` | Tích hợp. Không commit trực tiếp. |
 | `feature/*` | Từng việc. Tạo từ `develop`, merge lại vào `develop`. |
 
-**Đặt tên nhánh kèm tầng** để nhìn là biết ai làm:
+**Đặt tên nhánh kèm phạm vi** để nhìn là biết ai làm. Dùng **slug tiếng Anh, không dấu**, ngắn
+gọn 3–5 từ:
 
 ```
-feature/data-job-entity
-feature/api-job-service
-feature/web-job-list
-feature/ai-cv-scoring
-feature/contracts-job-dto
+feature/recruitment-job-entity
+feature/recruitment-cv-upload
+feature/aiscreening-openai-adapter
+feature/aiscreening-fallback-pipeline
+feature/identity-jwt-login
+feature/api-application-endpoint
+feature/web-candidate-dashboard
+feature/shared-entity-base
+feature/docs-architecture
+feature/docker-compose-update
+feature/ci-arch-tests
 ```
+
+Phạm vi hợp lệ ở đầu tên nhánh — **giống hệt** danh sách phạm vi của commit ở mục 2:
+`recruitment` | `aiscreening` | `identity` | `shared` | `api` | `worker` | `web` | `contracts` | `ci` | `docker` | `docs` | `test`
 
 ## 2. Commit
 
@@ -25,62 +35,172 @@ Theo Conventional Commits:
 ```
 <loại>(<phạm vi>): <mô tả ngắn>
 
-feat(api): them endpoint POST /api/jobs
-fix(data): sua quan he Application - Candidate
-docs(ai): bo sung prompt tom tat CV
-test(business): them unit test state machine
-chore(ci): them buoc dotnet test
+feat(api): them endpoint POST /api/applications
+feat(aiscreening): them OpenAiScoringAdapter
+fix(recruitment): sua quan he Application - Cv
+feat(identity): them role Candidate va HR
+docs(architecture): cap nhat ADR-3 ve 2 port AI
+test(aiscreening): them snapshot test cho scoring
+chore(ci): them buoc chay ArchitectureTests
 ```
 
-Loại: `feat` | `fix` | `docs` | `test` | `refactor` | `chore`
-Phạm vi: `data` | `business` | `api` | `web` | `ai` | `contracts` | `ci` | `docker`
+Loại (bắt buộc): `feat` | `fix` | `docs` | `test` | `refactor` | `chore` | `perf` | `style`
+
+Ngôn ngữ commit: **tiếng Việt không dấu** để tránh lỗi encoding trên các máy khác nhau.
 
 ## 3. Pull Request
 
-- Mở PR từ `feature/*` vào `develop`.
-- **Bắt buộc ít nhất 1 approve** từ thành viên khác trước khi merge.
-- PR phải liên kết tới issue (`Closes #12`).
-- Điền đủ checklist trong template PR.
-- PR sửa `src/ATS.Contracts` cần **2 approve từ 2 tầng khác nhau**, vì nó ảnh hưởng mọi người.
+- PR từ `feature/*` → `develop`. PR từ `develop` → `main` chỉ khi có release.
+- Tiêu đề PR: `<loại>(<phạm vi>): <mô tả>` giống commit
+- Body PR có 2 phần: **What** (làm gì) + **Why** (vì sao)
+- Screenshot nếu là UI, curl command nếu là API
+- Link tới issue nếu có
 
-## 4. Ranh giới sở hữu
+### PR nhỏ, không PR khổng lồ
 
-| Thư mục | Người sở hữu |
-|---|---|
-| `src/ATS.Data`, `docker/`, `.github/` | TV1 |
-| `src/ATS.Business`, `src/ATS.Api` | TV2 |
-| `src/ATS.Web` | TV3 |
-| `src/ATS.AI`, `src/ATS.Tests` | TV4 |
-| `src/ATS.Contracts` | Cả nhóm |
+- < 300 dòng diff: tốt
+- 300–800: cần lý do (ví dụ scaffolding ban đầu)
+- > 800: **tách ra**, trừ trường hợp đặc biệt
 
-Muốn sửa file thuộc tầng người khác → mở PR riêng và cần approve của chủ tầng đó.
+## 4. Review
 
-## 5. Contract-first
+Xem `docs/code-review.md` cho checklist chi tiết.
 
-Các tầng giao tiếp qua DTO + interface trong `src/ATS.Contracts`, **chốt trong tuần 2**.
-Sau đó mỗi người phát triển song song trên **mock/stub** của tầng dưới — không ai ngồi chờ ai.
+- Cần **ít nhất 1 approval** trước khi merge
+- CI phải xanh (build + test + ArchitectureTests)
+- PR đụng ArchitectureTests → **TV4** review bắt buộc
+- PR đụng migration → **TV1** review bắt buộc
+- PR đụng port AI → **TV4** review bắt buộc
 
-Ví dụ: TV3 dựng toàn bộ giao diện trên `MockJobService` trước khi TV2 viết xong `JobService`.
+## 5. Cấu trúc thư mục
 
-## 6. Migration
+```
+src/
+├── Shared/
+│   ├── ATS.SharedKernel/
+│   └── ATS.Persistence/
+├── Modules/
+│   ├── Recruitment/
+│   │   ├── ATS.Recruitment.Domain/
+│   │   ├── ATS.Recruitment.Application/
+│   │   └── ATS.Recruitment.Infrastructure/
+│   ├── AiScreening/
+│   │   ├── ATS.AiScreening.Domain/
+│   │   ├── ATS.AiScreening.Application/
+│   │   └── ATS.AiScreening.Infrastructure/
+│   └── Identity/
+│       ├── ATS.Identity.Domain/
+│       ├── ATS.Identity.Application/
+│       └── ATS.Identity.Infrastructure/
+├── Hosts/
+│   ├── ATS.Api/
+│   ├── ATS.Worker/
+│   └── ATS.Web/
+└── Tests/
+    ├── ATS.AiScreening.Tests/
+    ├── ATS.Recruitment.Tests/
+    ├── ATS.ArchitectureTests/
+    └── ATS.IntegrationTests/
+```
 
-- Chỉ **TV1** tạo và duyệt migration.
-- Một thời điểm chỉ có **một** migration đang mở, để tránh xung đột.
-- Đặt tên: `20260301_AddJobEntity`.
+## 6. Quy tắc kiến trúc (bắt buộc)
 
-## 7. Kiểm thử
+Được ép bằng `ATS.ArchitectureTests` trong CI. Vi phạm → CI đỏ:
 
-- Người viết code là người viết unit test cho code đó.
-- **PR không có test → không merge** (trừ PR chỉ sửa tài liệu).
-- TV4 phụ trách test tích hợp và E2E.
+1. **Domain không reference Infrastructure.**
+2. **Port AI (`IAiScoringService`, `IInterviewQuestionGenerator`) chỉ nhận `AnonymizedCv`, không `string` hay `Cv`.**
+   `AnonymizedCv`, `IAnonymizer` và `SimpleAnonymizer` sống trong `AiScreening.Domain`;
+   constructor `internal` nên **không assembly nào khác tạo được**. Module `Recruitment`
+   không được tham chiếu `AnonymizedCv` (xem ADR-3).
+3. **Controllers không được inject `DbContext`, phải qua Application service.**
 
-## 8. Bảo mật
+## 7. Chạy local
 
-- Không commit API key, connection string thật, hay dữ liệu ứng viên thật.
-- Dùng `dotnet user-secrets` khi phát triển, biến môi trường khi deploy.
-- Dữ liệu nhạy cảm (CCCD, SĐT, email) phải được **ẩn danh trước khi gửi tới dịch vụ AI**.
+```bash
+# 1. Clone
+git clone https://github.com/hungnv-2811/ATS-Recruitment.git
+cd ATS-Recruitment
 
-## 9. Nhật ký công việc
+# 2. Copy env mẫu
+cp docker/.env.example docker/.env
+# Sửa docker/.env: điền OPENAI_API_KEY nếu có (không bắt buộc, Fake adapter chạy được)
 
-Cuối mỗi tuần, mỗi người cập nhật file của mình trong `docs/worklog/`.
-Đây là minh chứng đóng góp cá nhân khi chấm điểm — không cập nhật là mất điểm.
+# 3. Chạy
+docker compose -f docker/docker-compose.yml up -d
+
+# 4. Kiểm tra
+curl http://localhost:8080/health
+```
+
+### Hai file `.env.example`, dùng file nào
+
+| File | Dùng khi | Ai đọc |
+|---|---|---|
+| `docker/.env.example` → `docker/.env` | Chạy bằng Docker Compose | `docker compose` tự nạp `.env` **nằm cạnh file compose** |
+| `.env.example` → `.env` | Chạy `dotnet run` trực tiếp trên máy | `DotNetEnv` / user-secrets |
+
+`docker compose -f docker/docker-compose.yml` **không** đọc `.env` ở thư mục gốc — nó đọc
+`docker/.env`. Đặt khoá vào đúng file, nếu không container sẽ chạy với biến rỗng mà không báo
+lỗi gì.
+
+| Cổng mặc định | Dịch vụ | Biến để đổi |
+|---|---|---|
+| 8080 | API + Swagger | `API_PORT` |
+| 8081 | Web (Blazor) | `WEB_PORT` |
+| 8025 | MailHog UI | `MAILHOG_UI_PORT` |
+| 1025 | MailHog SMTP | `MAILHOG_SMTP_PORT` |
+| 5432 | PostgreSQL | `DB_PORT` |
+| 6379 | Redis | `REDIS_PORT` |
+
+**Cổng bị dự án khác chiếm?** Đặt biến tương ứng trong `docker/.env`, **đừng sửa
+`docker-compose.yml`** — sửa file đó là cả nhóm phải sửa theo.
+
+```bash
+# vi du: may dang chay san thu khac o 8080
+echo "API_PORT=18080" >> docker/.env
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Triệu chứng của xung đột cổng rất dễ đánh lừa: `curl localhost:8080/health` trả về một trang
+lạ (302, trang đăng nhập của ứng dụng khác) thay vì lỗi "connection refused" — vì **có** thứ
+đang lắng nghe ở đó, chỉ không phải API của mình. Kiểm tra bằng `docker ps` xem cột `PORTS`
+của `docker-api-1` có thật sự ánh xạ ra host không.
+
+## 8. Trước khi push
+
+```bash
+dotnet tool restore   # lần đầu clone: cài dotnet-ef đúng version của nhóm
+dotnet build          # phải xanh — cảnh báo bị coi là lỗi
+dotnet test           # phải xanh (bao gồm 5 quy tắc ArchitectureTests)
+dotnet format         # định dạng code
+```
+
+### Hai thứ đừng sửa lung tung
+
+- **`Directory.Build.props`** giữ `TargetFramework` cho cả 18 project. Không khai báo
+  `TargetFramework` riêng trong từng `.csproj`.
+- **`TreatWarningsAsErrors` đang bật.** Không tắt nó để "cho build qua" — sửa cảnh báo.
+
+### Tạo migration
+
+```bash
+dotnet tool restore
+dotnet dotnet-ef migrations add TenMigration --project src/Shared/ATS.Persistence
+```
+
+Không cần `--startup-project`: `ATS.Persistence` đã có `AtsDbContextFactory` dùng lúc thiết kế,
+nên tạo migration không phải kéo `EntityFrameworkCore.Design` vào `ATS.Api`.
+
+## 9. Bí mật
+
+- **Không commit** `.env`, `appsettings.Development.json` với API key
+- API key để trong biến môi trường hoặc user secrets: `dotnet user-secrets set "OpenAI:ApiKey" "sk-..."`
+- Nếu lỡ commit key: **rotate key ngay**, đừng chỉ revert commit
+
+## 10. Cần giúp
+
+- Blocker > 4 giờ → tag cả nhóm
+- Câu hỏi kiến trúc → TV1
+- Câu hỏi AI → TV4
+- Câu hỏi API/nghiệp vụ → TV2
+- Câu hỏi UI → TV3

@@ -1,0 +1,25 @@
+# Build context của Docker là thư mục gốc repo (xem docker/docker-compose.yml).
+# Không có file này thì `COPY src/ ./` sẽ nuốt cả bin/obj của máy dev vào image:
+# image phình to, build chậm, và tệ nhất là dll biên dịch trên Windows lọt vào image Linux.
+
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+
+.git/
+.github/
+docs/
+*.md
+
+# Bí mật và dữ liệu — tuyệt đối không đưa vào image
+**/.env
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/secrets.json
+**/*.pfx
+data/
+uploads/
+storage/
+logs/

@@ -6,21 +6,31 @@
 | **MSSV** | (điền) |
 | **GitHub** | (điền) |
 | **Tầng phụ trách** | Dữ liệu & Hạ tầng |
-| **Project sở hữu** | `ATS.Data`, `docker/`, `.github/` |
+| **Project sở hữu** | `ATS.SharedKernel`, `ATS.Persistence`, `docker/`, `.github/` |
 
 > Mẫu ghi: [_TEMPLATE.md](_TEMPLATE.md). Tuần mới nhất đặt **trên cùng**.
 
+> **Lưu ý khi nộp:** các ô `#—` (Issue/PR) và `~—h` (thời gian) là phần **mỗi người tự điền**
+> theo hoạt động thật của mình trên GitHub. Phần "Việc đã làm" ghi đúng trạng thái repo.
+
+
 ---
 
-## Tuần 2 (dd/mm – dd/mm) — Nền tảng + Contract
+## Tuần 2 (dd/mm – dd/mm) — Dựng khung
 
-**Chức năng chung của tuần:** chốt `ATS.Contracts`, dựng nền cho cả nhóm.
+**Chức năng chung của tuần:** `docker compose up` chạy được, ArchitectureTests xanh.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| ERD, entity, `DbContext`, migration đầu tiên, CI cơ bản | #— | #— | Chưa bắt đầu |
+| `ATS.sln` + 18 project, project reference đúng chiều phụ thuộc | #— | #— | Xong |
+| `ATS.SharedKernel`: `Entity<TId>`, `ValueObject`, `Result<T>`, `Error`, `IEmailSender` | #— | #— | Xong |
+| `ATS.Persistence`: `AtsDbContext` + `AtsDbContextConfigurator` + design-time factory | #— | #— | Xong |
+| Migration `InitialCreate` — tạo 3 schema | #— | #— | Xong |
+| `Directory.Build.props` (TargetFramework một chỗ) + `dotnet-tools.json` (ghim EF) | #— | #— | Xong |
+| `docker-compose.yml` 6 service + Dockerfile .NET 10 | #— | #— | Xong |
+| CI xanh (build + test) | #— | #— | Xong |
 
 ### PR đã review của người khác
 
@@ -48,7 +58,10 @@
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Tạo repo, cấu trúc solution, branch protection, board backlog | #— | #— | Chưa bắt đầu |
+| Tạo repo, branch protection, CODEOWNERS, board backlog | #— | #— | Xong |
+| `architecture.md`: 3 ADR + ràng buộc RB1–RB9 + đánh đổi | #— | #— | Xong |
+| `database-design.md`: ERD, schema, ràng buộc, index | #— | #— | Xong |
+| Review chéo: phát hiện `candidates` bị xếp nhầm schema `identity` | #— | #— | Xong |
 
 ### PR đã review của người khác
 
