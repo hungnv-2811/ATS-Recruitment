@@ -60,12 +60,12 @@ public interface IFileStorage
     Task<Stream> ReadAsync(string path, CancellationToken ct);
     Task DeleteAsync(string path, CancellationToken ct);
 }
-
-public interface IAnonymizer
-{
-    AnonymizedCv Anonymize(string rawCvText);
-}
 ```
+
+> **`IAnonymizer` KHÔNG nằm ở đây.** Nó thuộc `AiScreening.Domain` (mục 2.2) cùng với
+> `AnonymizedCv`. Đặt ở `Recruitment.Domain` thì module này phải tham chiếu kiểu của module
+> kia — vi phạm quy tắc "không reference chéo" (`architecture.md` mục 3.3) — và constructor
+> `internal` của `AnonymizedCv` sẽ không biên dịch được qua ranh giới assembly. Xem ADR-3.
 
 ### 2.2. AiScreening.Domain — hai port AI
 
@@ -88,10 +88,41 @@ public interface IInterviewQuestionGenerator
         CancellationToken ct);
 }
 
+// Ẩn danh CV — sống ở ĐÂY, không ở Recruitment (ADR-3).
+// SimpleAnonymizer implement port này NGAY TRONG Domain, nhờ đó tạo được
+// AnonymizedCv (ctor internal) mà không cần InternalsVisibleTo.
+public interface IAnonymizer
+{
+    Task<AnonymizedCv> AnonymizeAsync(string rawCvText, CancellationToken ct);
+}
+
+// Port cấp thấp cho phase 2: adapter Infrastructure chỉ được cầm string,
+// KHÔNG bao giờ cầm quyền tạo AnonymizedCv.
+public interface IPiiRedactor
+{
+    Task<string> RedactAsync(string rawCvText, CancellationToken ct);
+}
+
 public interface IScreeningQueue
 {
     Task EnqueueAsync(ScreeningTask task, CancellationToken ct);
     Task<ScreeningTask?> DequeueAsync(CancellationToken ct);
+}
+
+// Cache theo NỘI DUNG, không gắn application_id — dùng được cả khi ứng viên
+// preview lúc chưa nộp đơn (UC-05). Xem database-design.md mục 2.
+public interface IAiScoreCacheRepository
+{
+    Task<CachedScore?> GetAsync(CacheKey key, CancellationToken ct);
+    Task SaveAsync(CacheKey key, ScreeningResult result, CancellationToken ct);
+}
+
+// Hạn mức AI — hiện thực RB2 ($20-30 cả kỳ).
+public interface IAiUsageQuota
+{
+    Task<bool> TryConsumePreviewAsync(Guid userId, CancellationToken ct);
+    Task<bool> TryConsumeBatchAsync(Guid userId, CancellationToken ct);
+    Task<QuotaStatus> GetStatusAsync(Guid userId, CancellationToken ct);
 }
 
 public interface IAiScoreRepository
@@ -131,9 +162,44 @@ public interface ITokenIssuer
 {
     string IssueAccessToken(User user);
 }
+
+// "Quên mật khẩu" — token lưu dạng HASH, dùng một lần, hết hạn 30 phút.
+public interface IPasswordResetTokenRepository
+{
+    Task<PasswordResetToken?> GetByHashAsync(string tokenHash, CancellationToken ct);
+    Task AddAsync(PasswordResetToken token, CancellationToken ct);
+    Task MarkUsedAsync(Guid id, CancellationToken ct);
+    Task InvalidateAllForUserAsync(Guid userId, CancellationToken ct);
+}
 ```
 
-### 2.4. Cross-module port (Recruitment → AiScreening)
+### 2.4. Gửi email — `ATS.SharedKernel`
+
+Hai module cùng cần gửi email (Identity: đặt lại mật khẩu; Recruitment: lời mời phỏng vấn).
+Port đặt ở `SharedKernel` vì đây là **hạ tầng kỹ thuật, không mang nghiệp vụ** — đúng ranh
+giới mà `architecture.md` mục 3 đặt ra cho SharedKernel. Nếu để ở một module thì module kia
+phải reference chéo.
+
+```csharp
+namespace ATS.SharedKernel.Ports;
+
+public interface IEmailSender
+{
+    Task SendAsync(EmailMessage message, CancellationToken ct);
+}
+
+public sealed record EmailMessage(
+    string ToAddress,
+    string Subject,
+    string HtmlBody,
+    string? PlainTextBody = null);
+```
+
+Adapter: `SmtpEmailSender` (MailHog khi dev, SMTP thật khi deploy) và `NullEmailSender` (ghi
+log rồi bỏ qua — dùng trong test và khi chưa cấu hình SMTP). Gửi email **không bao giờ** được
+làm hỏng nghiệp vụ: nếu SMTP lỗi thì buổi phỏng vấn vẫn phải được lưu.
+
+### 2.5. Cross-module port (Recruitment → AiScreening)
 
 Đặt trong `Recruitment.Application` (vì Recruitment là bên chủ động gọi):
 
@@ -190,6 +256,22 @@ public sealed record InterviewQuestion(
     string Question,
     string Source);    // "AI" | "Manual" | "Template"
 
+public sealed record CachedScore(
+    Score Score,
+    string Summary,
+    IReadOnlyList<string> Strengths,
+    IReadOnlyList<string> Gaps,
+    string AdapterUsed,
+    string ModelVersion,
+    string PromptVersion,
+    DateTime CreatedAt);
+
+public sealed record QuotaStatus(
+    int PreviewUsedToday,
+    int PreviewLimitPerDay,
+    int BatchUsedToday,
+    int BatchLimitPerDay);
+
 public sealed record JobRequirement(
     string Title,
     string Description,
@@ -206,6 +288,9 @@ public sealed record JobRequirement(
 public record RegisterRequest(string Email, string Password, string FullName, string Role);
 public record LoginRequest(string Email, string Password);
 public record LoginResponse(string AccessToken, string Role, Guid UserId);
+
+public record ForgotPasswordRequest(string Email);
+public record ResetPasswordRequest(string Token, string NewPassword);
 ```
 
 ### CV
@@ -231,7 +316,9 @@ public record CreateJobRequest(string Title, string Description, string Requirem
 public record ApplyRequest(Guid JobId, Guid CvId);
 public record ApplicationDto(Guid Id, Guid JobId, string JobTitle, Guid CvId, string CvName,
                               string Status, DateTime AppliedAt,
-                              int? AiScore, string? AiSummary);
+                              int? AiScore, string? AiSummary,
+                              string? AiAdapterUsed,      // "OpenAI" | "Embedding" | "Keyword"
+                              string ScreeningStatus);    // Pending|Processing|Scored|Failed
 ```
 
 ### AI
@@ -240,7 +327,10 @@ public record ApplicationDto(Guid Id, Guid JobId, string JobTitle, Guid CvId, st
 public record ScorePreviewRequest(Guid CvId, Guid JobId);
 public record ScorePreviewResponse(int Score, string Summary,
                                     IReadOnlyList<string> Strengths,
-                                    IReadOnlyList<string> Gaps);
+                                    IReadOnlyList<string> Gaps,
+                                    string AdapterUsed,   // tầng nào tạo ra điểm này
+                                    bool CacheHit,
+                                    int PreviewRemainingToday);
 
 public record StartScreeningRequest(Guid JobId);
 public record ScreeningJobDto(Guid Id, int TargetCount, int DoneCount, int FailedCount,
@@ -256,6 +346,8 @@ public record InterviewQuestionDto(string Category, string Question, string Sour
 # Auth
 POST   /api/auth/register
 POST   /api/auth/login
+POST   /api/auth/forgot-password          (luôn trả 204, KHÔNG tiết lộ email có tồn tại hay không)
+POST   /api/auth/reset-password           (token + mật khẩu mới)
 
 # CV
 GET    /api/me/cvs
@@ -277,8 +369,10 @@ GET    /api/jobs/{jobId}/applications     (HR only, owner của job)
 PATCH  /api/applications/{id}/status      (HR only)
 
 # AI
-POST   /api/ai/score-preview              (candidate: xem % phù hợp trước khi nộp)
-POST   /api/screening-jobs                (HR: khởi chạy sàng lọc lô)
+POST   /api/ai/score-preview              (candidate: ĐỒNG BỘ, 200 OK, timeout 30s — ngoại lệ
+                                           có chủ đích của ADR-2, xem architecture.md)
+GET    /api/me/ai-quota                   (candidate: còn bao nhiêu lượt preview hôm nay)
+POST   /api/screening-jobs                (HR: khởi chạy sàng lọc lô → 202 Accepted)
 GET    /api/screening-jobs/{id}           (polling)
 POST   /api/applications/{id}/questions   (HR: sinh câu hỏi phỏng vấn)
 
@@ -292,6 +386,8 @@ POST   /api/interviews/{id}/evaluations   (HR: nhập đánh giá)
 | Từ | Đến | Interface | Ai implement |
 |---|---|---|---|
 | Recruitment.Application | AiScreening | `IApplicationScreeningTrigger` | AiScreening.Infrastructure |
+| Recruitment.Application | Hạ tầng email | `IEmailSender` (SharedKernel) | Recruitment.Infrastructure (`SmtpEmailSender`) |
+| Identity.Application | Hạ tầng email | `IEmailSender` (SharedKernel) | Recruitment.Infrastructure (`SmtpEmailSender`) |
 | ATS.Api | Recruitment.Application | `IJobService`, `ICvService`, `IApplicationService` | Recruitment.Application |
 | ATS.Api | AiScreening.Application | `IScoringService`, `IInterviewQuestionService` | AiScreening.Application |
 | ATS.Api | Identity.Application | `IAuthService` | Identity.Application |
@@ -304,3 +400,6 @@ POST   /api/interviews/{id}/evaluations   (HR: nhập đánh giá)
 - Không dùng `dynamic`, không dùng `object` làm tham số
 - DTO là `record` (immutable), Entity là `class` (có behavior)
 - Không trả `IQueryable` ra khỏi Repository — trả `IReadOnlyList<T>` hoặc `T`
+- Vượt hạn mức AI → `429 Too Many Requests`, body kèm `PreviewRemainingToday` và thời điểm reset
+- Mọi response có điểm AI **phải kèm `AdapterUsed`**. Điểm từ `Keyword` và điểm từ `OpenAI` là
+  hai thang khác nhau; giấu nguồn đi là để HR so sánh nhầm hai con số không cùng đơn vị

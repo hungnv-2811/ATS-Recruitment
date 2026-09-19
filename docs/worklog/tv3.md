@@ -10,17 +10,27 @@
 
 > Mẫu ghi: [_TEMPLATE.md](_TEMPLATE.md). Tuần mới nhất đặt **trên cùng**.
 
+> **Lưu ý khi nộp:** các ô `#—` (Issue/PR) và `~—h` (thời gian) là phần **mỗi người tự điền**
+> theo hoạt động thật của mình trên GitHub. Phần "Việc đã làm" ghi đúng trạng thái repo.
+
+
 ---
 
-## Tuần 2 (dd/mm – dd/mm) — Nền tảng + Contract
+## Tuần 2 (dd/mm – dd/mm) — Dựng khung
 
-**Chức năng chung của tuần:** chốt `ATS.Contracts`, dựng nền cho cả nhóm.
+**Chức năng chung của tuần:** `docker compose up` chạy được, ArchitectureTests xanh.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Dựng khung Blazor, layout, mock service theo `ATS.Contracts` | #— | #— | Chưa bắt đầu |
+| `ATS.Web` Blazor Server skeleton: `App`, `Routes`, `MainLayout`, `NavMenu`, `Home` | #— | #— | Xong |
+| `HttpClient` đọc `ApiBaseUrl` từ config — Web **không** reference project module nào | #— | #— | Xong |
+| CSS nền: biến màu + dark mode theo `prefers-color-scheme` | #— | #— | Xong |
+
+### Vướng mắc
+
+- Chưa có API thật để gọi. Từ tuần 3 bám theo API ngay trong tuần API xong, không dồn cuối kỳ.
 
 ### PR đã review của người khác
 

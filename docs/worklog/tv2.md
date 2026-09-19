@@ -6,21 +6,28 @@
 | **MSSV** | (điền) |
 | **GitHub** | (điền) |
 | **Tầng phụ trách** | Nghiệp vụ & API |
-| **Project sở hữu** | `ATS.Business`, `ATS.Api` |
+| **Project sở hữu** | `ATS.Recruitment.*`, `ATS.Identity.*`, `ATS.Api` |
 
 > Mẫu ghi: [_TEMPLATE.md](_TEMPLATE.md). Tuần mới nhất đặt **trên cùng**.
 
+> **Lưu ý khi nộp:** các ô `#—` (Issue/PR) và `~—h` (thời gian) là phần **mỗi người tự điền**
+> theo hoạt động thật của mình trên GitHub. Phần "Việc đã làm" ghi đúng trạng thái repo.
+
+
 ---
 
-## Tuần 2 (dd/mm – dd/mm) — Nền tảng + Contract
+## Tuần 2 (dd/mm – dd/mm) — Dựng khung
 
-**Chức năng chung của tuần:** chốt `ATS.Contracts`, dựng nền cho cả nhóm.
+**Chức năng chung của tuần:** `docker compose up` chạy được, ArchitectureTests xanh.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Chủ trì chốt `ATS.Contracts` (DTO + interface cho cả 5 nhóm chức năng) | #— | #— | Chưa bắt đầu |
+| `ATS.Api` skeleton: Composition Root, Swagger, `GET /health` | #— | #— | Xong |
+| JWT middleware — cấu hình sẵn, chưa endpoint nào `[Authorize]` (bật thật tuần 3) | #— | #— | Xong |
+| Log cảnh báo `AiProvider` lúc khởi động (chặn rủi ro api/worker lệch cấu hình) | #— | #— | Xong |
+| `IApplicationScreeningTrigger` — port cross-module đặt ở bên chủ động gọi | #— | #— | Xong |
 
 ### PR đã review của người khác
 

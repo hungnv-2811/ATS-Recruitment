@@ -102,7 +102,34 @@ khác biệt hẳn (ví dụ AiScreening cần 10 replica còn Recruitment 1 rep
 **Đánh đổi chấp nhận:** thêm 1 dependency (Redis) và 1 process (Worker) → tăng độ phức tạp
 deploy. → Bù lại bằng docker-compose gom sẵn.
 
+**Ngoại lệ có chủ đích — `POST /api/ai/score-preview` gọi LLM đồng bộ ngay trong API.**
+
+Quyết định bất đồng bộ ở trên áp dụng cho **sàng lọc lô** (HR chạy 200–300 hồ sơ). Riêng use
+case "ứng viên xem % phù hợp trước khi nộp" (UC-05) chỉ là **một** cặp CV↔JD, và toàn bộ giá
+trị của nó nằm ở chỗ trả lời ngay trên màn hình ứng viên đang đứng. Đẩy một lượt gọi duy nhất
+qua queue nghĩa là thêm bảng preview, thêm endpoint polling, thêm vòng lặp UI — ba thứ để
+phục vụ đúng một lần gọi 5–30 giây.
+
+| | Sàng lọc lô (HR) | Preview (Ứng viên) |
+|---|---|---|
+| Số lượt gọi LLM | 200–300 | 1 |
+| Đường đi | API → Redis → Worker | API gọi thẳng adapter |
+| Phản hồi | `202 Accepted` + polling | `200 OK` đồng bộ |
+| Timeout | không (Worker tự retry) | 30 giây cứng |
+| Khi quá hạn | job `Failed`, HR chạy lại | rơi xuống Keyword adapter, vẫn có điểm |
+
+**Hệ quả bắt buộc phải nhất quán trong cấu hình:** process `api` **cũng cần**
+`OPENAI_API_KEY`, và `AiProvider` của `api` phải đặt **giống** `worker`. Nếu để `api` chạy
+`Fake` còn `worker` chạy `OpenAI` thì ứng viên sẽ luôn nhận điểm giả trong khi HR nhận điểm
+thật — xem phần ghi chú trong `docker/docker-compose.yml`.
+
+Hai hàng rào giữ cho ngoại lệ này không lan rộng: **(1)** timeout cứng 30 giây, **(2)**
+rate-limit 20 lượt/ngày mỗi ứng viên, lưu ở bảng `aiscreening.ai_usage_quotas`
+(xem [`ai-integration.md`](ai-integration.md) mục 4).
+
 **Dấu hiệu phải xem lại:** khi latency polling gây khó chịu → chuyển sang SSE ở phase sau.
+Hoặc khi p95 của preview vượt 30 giây, hoặc có > 50 ứng viên preview đồng thời → lúc đó mới
+đẩy preview qua queue như sàng lọc lô.
 
 ### ADR-3: **LLM (và mọi AI use-case) đứng sau Port trong Domain**
 
@@ -132,6 +159,32 @@ public interface IInterviewQuestionGenerator
 Cả hai port đều nhận `AnonymizedCv` — **kiểu dữ liệu riêng, không phải `string`**. Compiler ép
 mọi CV phải qua bước ẩn danh trước khi gửi lên LLM. Đây là cách hiện thực RB3 ở compile-time
 thay vì trông chờ vào kỷ luật lập trình.
+
+**`AnonymizedCv`, `IAnonymizer` và bản hiện thực regex đều nằm trong `AiScreening.Domain`.**
+Đây không phải chi tiết tuỳ tiện — nó là điều kiện để cơ chế trên hoạt động thật:
+
+- Constructor của `AnonymizedCv` là `internal` → chỉ code **cùng assembly** mới tạo được.
+- `SimpleAnonymizer` (regex thuần, không I/O, không SDK ngoài) đặt luôn trong Domain → tạo
+  được `AnonymizedCv` mà **không cần** `InternalsVisibleTo`. Không có lỗ hổng nào phải nới ra.
+- Module `Recruitment` **không** tham chiếu `AnonymizedCv`. Nó chỉ gửi `applicationId` qua
+  `IApplicationScreeningTrigger`; việc đọc CV và ẩn danh diễn ra hoàn toàn bên trong
+  `AiScreening`. Nhờ vậy quy tắc "module không reference chéo" ở mục 3.3 vẫn đúng.
+
+Khi cần anonymizer mạnh hơn bằng LLM (phase 2), **không** implement `IAnonymizer` ở
+Infrastructure — làm vậy buộc phải mở `internal` ra và mất luôn bảo đảm compile-time. Thay vào
+đó thêm một port cấp thấp hơn, chỉ làm việc trên `string`:
+
+```csharp
+// AiScreening.Domain — adapter bên Infrastructure implement port này
+public interface IPiiRedactor
+{
+    Task<string> RedactAsync(string rawCvText, CancellationToken ct);
+}
+```
+
+`SimpleAnonymizer` trong Domain gọi `IPiiRedactor` (nếu được cấu hình), rồi mới bọc kết quả
+thành `AnonymizedCv`. Infrastructure xử lý được text nhưng **không bao giờ** cầm được quyền
+tạo `AnonymizedCv`.
 
 Adapter thật sống trong `AiScreening.Infrastructure`:
 
@@ -164,24 +217,29 @@ Solution `ATS.sln` chia làm **4 vùng**: `Shared`, `Modules`, `Hosts`, `Tests`.
 ```
 src/
 ├── Shared/
-│   └── ATS.SharedKernel/                # KHÔNG chứa nghiệp vụ, chỉ primitive
-│                                          # Entity, ValueObject, Result<T>, IUnitOfWork
+│   ├── ATS.SharedKernel/                # KHÔNG chứa nghiệp vụ, chỉ primitive
+│   │                                      # Entity, ValueObject, Result<T>, Error,
+│   │                                      # IUnitOfWork, Ports/IEmailSender
+│   └── ATS.Persistence/                 # AtsDbContext + Migrations (xem 3.2)
 ├── Modules/
 │   ├── Recruitment/                     # Nghiệp vụ tuyển dụng cốt lõi
 │   │   ├── ATS.Recruitment.Domain/      #   Job, Candidate, Cv (1-N), Application, Interview,
-│   │   │                                #   AnonymizedCv value object, IJobRepository, ...
+│   │   │                                #   IJobRepository, ICvRepository, IFileStorage, ...
 │   │   ├── ATS.Recruitment.Application/ #   Service class + validator (không CQRS đầy đủ)
-│   │   └── ATS.Recruitment.Infrastructure/ # EF repository, LocalFileStorage, SimpleAnonymizer
+│   │   └── ATS.Recruitment.Infrastructure/ # EF repository, LocalFileStorage, SmtpEmailSender
 │   │
 │   ├── AiScreening/                     # ⭐ Lõi AI — giữ Clean Architecture 100%
-│   │   ├── ATS.AiScreening.Domain/      #   AiScore, ScreeningJob, InterviewQuestion,
-│   │   │                                #   CacheKey, IAiScoringService, IInterviewQuestionGenerator,
-│   │   │                                #   IScreeningQueue
+│   │   ├── ATS.AiScreening.Domain/      #   AiScore, ScreeningJob, InterviewQuestion, CacheKey,
+│   │   │                                #   AnonymizedCv (ctor internal) + IAnonymizer +
+│   │   │                                #   SimpleAnonymizer + IPiiRedactor  ← xem ADR-3,
+│   │   │                                #   IAiScoringService, IInterviewQuestionGenerator,
+│   │   │                                #   IScreeningQueue, IAiScoreCacheRepository, IAiUsageQuota
 │   │   ├── ATS.AiScreening.Application/ #   CQRS: StartScreeningHandler, ProcessScreeningHandler,
-│   │   │                                #   GenerateInterviewQuestionsHandler
+│   │   │                                #   GenerateInterviewQuestionsHandler, PreviewScoreHandler
 │   │   └── ATS.AiScreening.Infrastructure/ # OpenAiScoringAdapter, EmbeddingScoringAdapter,
 │   │                                       # KeywordScoringAdapter, AiScoringPipeline,
-│   │                                       # OpenAiInterviewQuestionAdapter, RedisScreeningQueue
+│   │                                       # OpenAiInterviewQuestionAdapter, RedisScreeningQueue,
+│   │                                       # LlmPiiRedactor (phase 2)
 │   │
 │   └── Identity/                        # Tài khoản 2 vai (HR, Ứng viên) + Admin
 │       ├── ATS.Identity.Domain/
@@ -196,24 +254,58 @@ src/
 └── Tests/
     ├── ATS.AiScreening.Tests/           # Test lõi AI với FakeAdapter
     ├── ATS.Recruitment.Tests/           # Test nghiệp vụ CRUD
-    ├── ATS.ArchitectureTests/           # NetArchTest ép ranh giới (rules dưới)
+    ├── ATS.ArchitectureTests/           # Ép ranh giới bằng reflection (rules dưới)
     └── ATS.IntegrationTests/            # End-to-end: upload CV → chấm → xếp hạng
 ```
 
-### 3.1. Ba quy tắc kiến trúc bắt buộc (ép bằng NetArchTest trong CI)
+### 3.1. Năm quy tắc kiến trúc bắt buộc (ép bằng test trong CI)
+
+Ba quy tắc cốt lõi:
 
 1. **Domain không được reference Infrastructure.** Dependency luôn hướng vào trong.
 2. **`IAiScoringService` và `IInterviewQuestionGenerator` chỉ nhận `AnonymizedCv`, không nhận
    `string` hay `Cv` thô.** Compiler ép PII protection.
 3. **Controllers không được đụng thẳng `DbContext`.** Phải qua Application layer.
 
+Hai quy tắc giữ cho ADR-3 không bị phá ngầm:
+
+4. **Module `Recruitment` không được tham chiếu `AiScreening`.** Cross-module đi qua
+   `IApplicationScreeningTrigger`. Vi phạm quy tắc này là `AnonymizedCv` rò sang module khác.
+5. **`AnonymizedCv` không có constructor `public`, và `ATS.AiScreening.Domain` không được khai
+   báo `InternalsVisibleTo` cho bất kỳ assembly nào.** Đây là quy tắc dễ bị phá ngầm nhất: chỉ
+   cần một dòng `InternalsVisibleTo` là toàn bộ bảo đảm compile-time của RB3 biến mất mà không
+   ai nhận ra, vì code vẫn biên dịch và mọi test khác vẫn xanh.
+
+**Cài đặt: reflection thuần, không dùng thư viện ngoài.** Bản nháp đầu định dùng NetArchTest,
+nhưng ba trong năm quy tắc trên (2, 4, 5) không diễn đạt được bằng thư viện đó — chúng cần đọc
+chữ ký method và attribute ở mức assembly. Dùng `System.Reflection` trực tiếp vừa đủ sức diễn
+đạt cả năm, vừa bớt một dependency.
+
+`ATS.ArchitectureTests` gồm 9 test (quy tắc 1 chạy trên 4 assembly Domain, quy tắc 2 chạy trên
+2 port AI). **Các test này đã được kiểm chứng bằng cách cố tình phá luật**: sửa
+`IAiScoringService` nhận thêm `string` và thêm `InternalsVisibleTo` thì đúng 2 test đỏ, 7 test
+còn lại vẫn xanh. Một bộ test kiến trúc chưa bao giờ đỏ là một bộ test chưa được chứng minh.
+
 ### 3.2. Về DbContext
 
-**Một `AtsDbContext` dùng chung, tách bảng bằng schema PostgreSQL:**
+**Một `AtsDbContext` dùng chung, tách bảng bằng schema PostgreSQL**, đặt trong project riêng
+`src/Shared/ATS.Persistence`:
 
-- Schema `recruitment.*`: `jobs`, `candidates`, `cvs`, `applications`, `interviews`, `evaluations`
-- Schema `aiscreening.*`: `ai_scores`, `screening_jobs`, `interview_questions`
-- Schema `identity.*`: `users`, `roles`
+- Schema `identity.*`: `users`, `password_reset_tokens`
+- Schema `recruitment.*`: `candidates`, `hr_profiles`, `cvs`, `jobs`, `applications`,
+  `interviews`, `evaluations`
+- Schema `aiscreening.*`: `ai_scores`, `ai_score_cache`, `screening_jobs`,
+  `interview_questions`, `ai_usage_quotas`
+
+`identity` chỉ giữ thứ phục vụ xác thực (`users` = email + mật khẩu + vai + token đặt lại mật
+khẩu). Hồ sơ nghiệp vụ (`candidates`, `hr_profiles`) thuộc `recruitment`, vì `Candidate` là
+entity của `Recruitment.Domain` (`ICandidateRepository` nằm ở đó) — để ở `identity` thì
+Recruitment phải ghi vào schema của module khác.
+
+`ai_score_cache` **tách hẳn** khỏi `ai_scores`: cache khoá theo *nội dung* (CV + JD + model +
+prompt), còn `ai_scores` khoá theo *đơn ứng tuyển*. Ứng viên preview khi chưa nộp đơn nên
+không có `application_id` nào để ghi — chi tiết ở
+[`database-design.md`](database-design.md) mục 2.
 
 Lý do (đã cân nhắc phương án per-module DbContext):
 
@@ -221,6 +313,21 @@ Lý do (đã cân nhắc phương án per-module DbContext):
 - Join cross-module (ví dụ báo cáo) không cần federated query
 - Vẫn thấy ranh giới trong ERD (schema là "hàng rào mềm")
 - Team sinh viên chưa quen — giảm gánh nặng
+
+#### Vì sao `AtsDbContext` cần một project riêng
+
+Một DbContext dùng chung cần một chỗ ở chung. Ba phương án đã cân nhắc:
+
+| Phương án | Vì sao loại |
+|---|---|
+| Đặt trong `Recruitment.Infrastructure` | Hai module còn lại phải reference chéo sang nó — vi phạm mục 3.3 |
+| Đặt trong `ATS.SharedKernel` | Kéo EF Core vào SharedKernel, mà mọi Domain đều reference SharedKernel → Domain gián tiếp phụ thuộc EF, vi phạm quy tắc 1 |
+| Project riêng `ATS.Persistence` | **Đã chọn.** Chỉ ba project Infrastructure reference nó; Domain không thấy nó |
+
+Cấu hình entity **không** nằm trong `ATS.Persistence`. Mỗi module tự viết
+`IEntityTypeConfiguration` trong Infrastructure của mình rồi đăng ký assembly với
+`AtsDbContextConfigurator` ở Composition Root. Nhờ vậy `AtsDbContext` không phải tham chiếu
+project của module nào — đúng chiều phụ thuộc.
 
 Đánh đổi: nếu sau này tách microservices, phải chia lại DbContext. Chấp nhận vì đây là đồ án
 học, không phải sản phẩm production.
@@ -233,6 +340,42 @@ Ba module **không được reference chéo project của nhau**. Nếu module A
 Ví dụ: `Recruitment.Application.IApplicationScreeningTrigger` được implement bởi
 `AiScreening.Infrastructure.ScreeningTriggerAdapter` — vì `Recruitment` không được biết gì về
 Redis, LLM.
+
+---
+
+### 3.4. Vì sao PostgreSQL, không phải SQL Server
+
+Mặc định của hệ sinh thái .NET là SQL Server, nên chọn khác thì phải giải thích được.
+
+| Phương án | Vì sao loại |
+|---|---|
+| SQL Server (Developer Edition) | Image ~1,5 GB, khuyến nghị tối thiểu 2 GB RAM cho riêng nó — vi phạm RB4 (máy 8 GB còn phải chạy api + worker + web + Redis + IDE) |
+| SQLite | Không có schema để tách module, không partial index, kém khi worker và api cùng ghi |
+| MySQL 8 | Được, nhưng không có partial unique index (cần cho `cvs.is_default`) và JSON yếu hơn JSONB |
+
+Ba thứ cụ thể của PostgreSQL mà thiết kế này đang dựa vào:
+
+1. **Schema** làm hàng rào mềm giữa 3 module trong cùng một database (mục 3.2).
+2. **Partial unique index** cho ràng buộc "mỗi ứng viên chỉ 1 CV mặc định":
+   `CREATE UNIQUE INDEX ... ON cvs (candidate_id) WHERE is_default` — SQL Server có filtered
+   index tương đương, MySQL thì không có.
+3. **`postgres:16-alpine` ~ 80 MB**, `pg_isready` dùng làm healthcheck trong compose, license
+   miễn phí không ràng buộc — hợp RB4 và RB5.
+
+**Dấu hiệu phải xem lại:** khi trường hoặc doanh nghiệp yêu cầu bắt buộc SQL Server. EF Core
+làm việc đổi provider không quá đắt, nhưng phải viết lại partial index và 3 câu `CREATE SCHEMA`.
+
+### 3.5. Phiên bản .NET
+
+Toàn bộ solution dùng **.NET 10 (LTS)**. `TargetFramework` khai báo **một chỗ duy nhất** trong
+`Directory.Build.props` ở thư mục gốc, không lặp lại trong 18 file `.csproj`.
+
+Lý do không chọn .NET 8: học phần kéo dài 10 tuần và kết thúc cuối tháng 11/2026 — **đúng lúc
+.NET 8 hết hạn hỗ trợ**. Bảo vệ một đồ án trên nền tảng vừa hết hỗ trợ là điểm trừ không cần
+thiết. .NET 10 được hỗ trợ tới tháng 11/2028.
+
+Đổi phiên bản về sau chỉ cần sửa 4 chỗ: `Directory.Build.props`, `docker/Dockerfile` (2 dòng
+`FROM`), `.github/workflows/ci.yml`, `.github/workflows/ai-smoke.yml`.
 
 ---
 
@@ -263,21 +406,34 @@ Chưa chấm → Đang chấm → Đã chấm
 
 ## 5. Deployment
 
-`docker/docker-compose.yml` gom 5 container:
+`docker/docker-compose.yml` gom 6 container:
 
 ```
-┌──────────┐  ┌──────────┐  ┌──────────┐
-│  Web     │  │  Api     │  │  Worker  │
-│ (Blazor) │  │ (ASP.NET)│  │ (BgSvc)  │
-└────┬─────┘  └────┬─────┘  └────┬─────┘
-     │             │             │
-     │             ├─────────────┤
-     │             ▼             ▼
-     │        ┌────────┐    ┌────────┐
-     └───────▶│   db   │    │ queue  │
-              │ (pg16) │    │(redis) │
-              └────────┘    └────────┘
+                              ┌─── OpenAI ───┐   ← preview 1 CV, đồng bộ
+                              │              │     (ngoại lệ ADR-2, UC-05)
+┌──────────┐  ┌──────────┐  ┌─┴────────┐  ┌──▼───────┐
+│  Web     │─▶│  Api     │──┤ (LLM)    │  │  Worker  │  ← sàng lọc lô
+│ (Blazor) │  │ (ASP.NET)│  └──────────┘  │ (BgSvc)  │
+└──────────┘  └────┬─────┘                └────┬─────┘
+                   │                           │
+      ┌────────────┼───────────────┬───────────┤
+      ▼            ▼               ▼           ▼
+ ┌────────┐   ┌────────┐     ┌──────────┐ ┌────────┐
+ │   db   │   │ queue  │     │ mailhog  │ │   db   │
+ │ (pg16) │   │(redis) │     │  (smtp)  │ │        │
+ └────────┘   └────────┘     └──────────┘ └────────┘
 ```
+
+| Cổng | Dịch vụ |
+|---|---|
+| 8080 | API + Swagger |
+| 8081 | Web (Blazor) |
+| 8025 | MailHog — đọc email khi dev |
+| 5432 / 6379 | PostgreSQL / Redis |
+
+`mailhog` chỉ phục vụ môi trường dev: mọi email mời phỏng vấn và đặt lại mật khẩu rơi vào đó
+thay vì gửi ra Internet. Khi deploy thật thì trỏ `Smtp__Host` sang SMTP thật và bỏ container
+này đi.
 
 Web và Api có thể gộp vào một process trong bản demo (nếu thiếu RAM), nhưng thiết kế vẫn tách để
 sau này scale được. Worker bắt buộc riêng để không ngốn CPU/RAM của API khi chạy sàng lọc lô.
@@ -294,6 +450,9 @@ sau này scale được. Worker bắt buộc riêng để không ngốn CPU/RAM 
 | Blazor Server (không SSR/SPA) | Không tối ưu SEO cho trang tin công khai | Khi cần index Google |
 | Polling `/screening-jobs/{id}` | Latency 2–5s | Khi > 100 concurrent user chờ kết quả |
 | Redis là single-node | Mất queue nếu Redis crash | Khi cần HA |
+| Preview gọi LLM đồng bộ trong API (ngoại lệ ADR-2) | API phải giữ khoá LLM; một request chiếm luồng tới 30s | Khi p95 preview > 30s, hoặc > 50 ứng viên preview đồng thời |
+| Xếp hạng ứng viên bằng JOIN `applications` ↔ `ai_scores` | Thêm một phép join mỗi lần HR mở danh sách | Khi một tin có > 5.000 hồ sơ |
+| `interview_questions` ở schema `aiscreening` nhưng FK trỏ sang `recruitment.interviews` | Khoá ngoại xuyên schema — vướng khi tách service | Khi tách module thành service riêng |
 
 ---
 

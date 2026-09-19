@@ -19,23 +19,23 @@ mảng nhưng vẫn tham gia review và pair-program ở mảng khác.
 ### TV1 — Kiến trúc & Data
 
 - Tuần 1: `architecture.md`, `database-design.md`
-- Tuần 2: `.sln` structure, SharedKernel, migration đầu, docker-compose, CI
+- Tuần 2: `.sln` (18 project), SharedKernel + `IEmailSender`, `ATS.Persistence` + migration đầu, docker-compose, CI
 - Tuần 3–5: EF entity configurations, repositories, `LocalFileStorage`
 - Tuần 6: Redis client, ATS.Worker skeleton
-- Tuần 7–8: hỗ trợ TV4 với repository của AiScreening
-- Tuần 9: query báo cáo, dashboard
+- Tuần 7–8: repository của AiScreening (`ai_score_cache`, `ai_usage_quotas`)
+- Tuần 9: trả nợ tuần 7–8 trước; còn thời gian thì query báo cáo + dashboard
 - Tuần 10: deploy, seed data, video demo
 
 ### TV2 — Backend Business
 
 - Tuần 1: `use-cases.md`, `contracts.md`
 - Tuần 2: ATS.Api skeleton, Swagger, auth middleware
-- Tuần 3: Identity — Register/Login handlers, JWT
+- Tuần 3: Identity — Register/Login/ForgotPassword/ResetPassword handlers, JWT
 - Tuần 4: Recruitment — JobService, CvService
 - Tuần 5: ApplicationService, apply flow
 - Tuần 6: API cho AiScreening (screening-jobs, score-preview)
 - Tuần 7: hỗ trợ TV4 tích hợp OpenAI adapter
-- Tuần 8: Interview + Evaluation handlers
+- Tuần 8: Interview + Evaluation handlers, gửi email mời phỏng vấn (ngoài transaction)
 - Tuần 9: hỗ trợ TV3 wiring API-UI
 - Tuần 10: bug fix, slide bảo vệ
 
@@ -43,25 +43,33 @@ mảng nhưng vẫn tham gia review và pair-program ở mảng khác.
 
 - Tuần 1: wireframe (Figma/excalidraw)
 - Tuần 2: Blazor Server skeleton, layout, routing, auth
-- Tuần 3: đăng ký/đăng nhập 2 vai
+- Tuần 3: đăng ký/đăng nhập 2 vai + màn quên mật khẩu / đặt lại mật khẩu
 - Tuần 4: UI upload CV, list CV, đăng tin (HR)
 - Tuần 5: UI apply — chọn CV
 - Tuần 6: UI progress bar sàng lọc, danh sách xếp hạng
-- Tuần 7: UI score-preview cho ứng viên
-- Tuần 8: UI hẹn phỏng vấn + AI gợi ý câu hỏi
-- Tuần 9: dashboard, polish
+- Tuần 7: UI score-preview cho ứng viên + **nhãn nguồn điểm** (AI / Ngữ nghĩa / Từ khoá)
+      + hiển thị số lượt preview còn lại
+- Tuần 8: UI hẹn phỏng vấn + AI gợi ý câu hỏi + nút "Gửi lại lời mời"
+- Tuần 9: phân quyền UI, dashboard, polish
 - Tuần 10: mobile responsive nếu còn thời gian
+
+> **Quy tắc cho TV3:** UI bám theo API **ngay trong tuần API xong**, không để dồn sang tuần 9.
+> Một người không thể dựng toàn bộ giao diện của 2 chủ thể trong một tuần — xem
+> `weekly-plan.md`, mục "Hai điều chỉnh so với bản nháp đầu".
 
 ### TV4 — AI & Test
 
 - Tuần 1: `ai-integration.md`, prompt v1, chi phí
-- Tuần 2: ArchitectureTests với NetArchTest
+- Tuần 2: ArchitectureTests (5 quy tắc, reflection thuần — xem `architecture.md` mục 3.1)
 - Tuần 3–4: hỗ trợ review, viết test cho các module khác
-- Tuần 5: `SimpleAnonymizer`, unit test PII
-- Tuần 6: `FakeAiScoringAdapter`, `IScreeningQueue` interface, ProcessScreeningHandler
-- Tuần 7: `OpenAiScoringAdapter`, `EmbeddingScoringAdapter`, `KeywordScoringAdapter`, `AiScoringPipeline`
+- Tuần 5: `AnonymizedCv` + `IAnonymizer` + `SimpleAnonymizer` (**đặt trong `AiScreening.Domain`**,
+      xem ADR-3), unit test PII, ArchitectureTest chặn `Recruitment` chạm `AnonymizedCv`
+- Tuần 6: `FakeAiScoringAdapter`, `IScreeningQueue`, `IAiScoreCacheRepository`, `IAiUsageQuota`,
+      ProcessScreeningHandler
+- Tuần 7: `OpenAiScoringAdapter`, `KeywordScoringAdapter`, `AiScoringPipeline`, cache + quota
+      (**Embedding dời sang tuần 9** — nó cắt được, không nên nằm trên đường găng)
 - Tuần 8: `OpenAiInterviewQuestionAdapter`, `TemplateInterviewQuestionAdapter`
-- Tuần 9: snapshot tests, integration tests
+- Tuần 9: `EmbeddingScoringAdapter` (nếu hết nợ), snapshot tests, integration tests
 - Tuần 10: video demo AI flow, tài liệu prompt
 
 ## 3. Quy tắc làm việc
@@ -96,9 +104,13 @@ Nếu mất TV4: giữ Fake adapter, cắt OpenAI real integration (đây là th
 ## 4. Chấm điểm nội bộ
 
 Cuối kỳ, nhóm tự chấm điểm đóng góp theo:
+- **Số use case hoàn thành end-to-end** (từ UI xuống DB, có test) — tiêu chí chính
 - Số PR merge được
-- Số dòng code có ý nghĩa (không tính generated)
-- Chất lượng code review nhận được từ người khác
-- Tham gia họp
+- Chất lượng code review **để lại cho người khác** (bắt được lỗi thật, không phải "LGTM")
+- Tham gia họp và giữ đúng cam kết tuần
+
+> **Không dùng "số dòng code" làm tiêu chí.** Nó thưởng cho người viết dài dòng và phạt người
+> viết gọn — ngược hẳn tinh thần kiến trúc của đồ án này. Một PR xoá 200 dòng trùng lặp có giá
+> trị hơn một PR thêm 200 dòng copy-paste.
 
 Kết quả tự chấm nộp cho giảng viên trong báo cáo cuối kỳ.

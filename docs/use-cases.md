@@ -17,6 +17,7 @@
 ```
 Ứng viên
   ├── Đăng ký / đăng nhập
+  ├── Quên mật khẩu → nhận email đặt lại (token hết hạn 30 phút, dùng 1 lần)
   ├── Cập nhật hồ sơ cá nhân
   ├── Quản lý CV (nhiều CV cùng lúc)
   │     ├── Upload CV mới (PDF/DOCX)
@@ -37,7 +38,7 @@
 
 ```
 HR
-  ├── Đăng nhập
+  ├── Đăng nhập / quên mật khẩu
   ├── Đăng / sửa / đóng tin tuyển dụng
   ├── Xem danh sách ứng viên đã nộp vào tin mình quản lý
   │     └── Xem điểm AI (nếu đã chấm) — xếp hạng theo điểm
@@ -112,7 +113,7 @@ Chưa chấm → Đang chấm → Đã chấm
 tuyển bình thường khi cột điểm AI còn trống hoặc `Không chấm được`. Không màn hình nào được
 chặn thao tác vì thiếu điểm AI.
 
-## 6. Đặc tả 5 use case quan trọng nhất
+## 6. Đặc tả 6 use case quan trọng nhất
 
 ### UC-01: Ứng viên upload CV
 
@@ -171,27 +172,60 @@ chặn thao tác vì thiếu điểm AI.
   3. Bấm "Gợi ý câu hỏi" → gọi `IInterviewQuestionGenerator` với CV + JD
   4. AI trả về 8–12 câu hỏi, chia nhóm (chuyên môn, tình huống, hành vi)
   5. HR có thể sửa/xóa/thêm câu hỏi tự viết
-  6. Lưu → gửi email lời mời phỏng vấn cho ứng viên
+  6. Lưu `Interview` + câu hỏi **trước**, rồi mới gửi email mời phỏng vấn qua `IEmailSender`
 - **Luồng phụ**:
   - AI lỗi → dùng `TemplateInterviewQuestionAdapter` (câu hỏi mẫu theo vị trí)
   - HR có thể bỏ qua bước AI, nhập câu hỏi thủ công
-- **Kết quả**: Interview được lưu, câu hỏi đính kèm, ứng viên nhận email
+  - **SMTP lỗi → buổi phỏng vấn VẪN được lưu.** Gửi email là việc phụ, không nằm trong
+    transaction. Hệ thống đánh dấu `email_sent = false` và hiện nút "Gửi lại lời mời" cho HR.
+    Không bao giờ rollback một buổi phỏng vấn chỉ vì không gửi được mail
+  - Dev/demo dùng container MailHog, xem mail ở `http://localhost:8025` — không gửi ra Internet
+- **Kết quả**: Interview được lưu, câu hỏi đính kèm, ứng viên nhận email (hoặc HR gửi lại sau)
 
 ### UC-05: Ứng viên xem điểm phù hợp trước khi nộp
 
 - **Tác nhân**: Ứng viên
 - **Tiền điều kiện**: Đăng nhập, đã có CV
+- **Kiểu gọi**: **ĐỒNG BỘ** — `POST /api/ai/score-preview` trả thẳng `200 OK`, timeout cứng
+  30 giây. Đây là **ngoại lệ có chủ đích** của ADR-2 (sàng lọc lô thì bất đồng bộ), vì đây chỉ
+  là một cặp CV↔JD và giá trị của nó nằm ở chỗ trả lời ngay trên màn hình. Lý do đầy đủ ở
+  `architecture.md` ADR-2.
 - **Luồng chính**:
   1. Ứng viên xem chi tiết tin
   2. Chọn CV muốn dùng
   3. Bấm "Xem độ phù hợp"
-  4. Hệ thống kiểm tra cache theo `CacheKey(cvHash, jdHash, modelVersion)`
-     - Có cache → trả ngay
-     - Không cache → chấm mới (đồng bộ, timeout 30s), cache lại
-  5. Hiển thị: điểm 0–100, danh sách kỹ năng match, kỹ năng thiếu
+  4. Hệ thống tra `aiscreening.ai_score_cache` theo
+     `CacheKey(cvText, jdText, modelVersion, promptVersion)`
+     - **Trúng cache** → trả ngay, **không trừ hạn mức** (không tốn tiền thì không tính)
+     - **Trượt cache** → kiểm tra hạn mức trước, rồi mới chấm mới và ghi cache
+  5. Hiển thị: điểm 0–100, kỹ năng match, kỹ năng thiếu, **nhãn nguồn điểm**
+     (AI / Ngữ nghĩa / Từ khoá) và số lượt còn lại trong ngày
 - **Luồng phụ**:
-  - Ứng viên chấm lại nhiều lần cùng CV+JD → tất cả trả cache, không tốn tiền
-- **Kết quả**: ứng viên biết được có nên nộp hay không
+  - Ứng viên chấm lại nhiều lần cùng CV+JD → tất cả trúng cache, không tốn tiền, không trừ lượt
+  - **Hết hạn mức 20 lượt/ngày** → `429`, hiện thời điểm reset. Ứng viên vẫn nộp đơn được bình
+    thường; preview là tiện ích, không phải điều kiện để ứng tuyển
+  - **Quá 30 giây** → rơi xuống `KeywordScoringAdapter`, vẫn trả điểm, nhãn ghi rõ "Từ khoá"
+  - CV chưa trích xuất được text → báo "chưa chấm được CV này", gợi ý chọn CV khác
+- **Kết quả**: ứng viên biết được có nên nộp hay không, và biết con số đó đáng tin đến mức nào
+
+### UC-06: Quên mật khẩu
+
+- **Tác nhân**: Ứng viên hoặc HR
+- **Tiền điều kiện**: không (chưa đăng nhập được)
+- **Luồng chính**:
+  1. Người dùng nhập email ở màn "Quên mật khẩu"
+  2. Hệ thống **luôn trả `204 No Content`**, bất kể email có tồn tại hay không — không để
+     kẻ tấn công dò xem địa chỉ nào đã đăng ký
+  3. Nếu email có thật: sinh token ngẫu nhiên, lưu **hash** của token vào
+     `identity.password_reset_tokens` (hết hạn 30 phút), gửi link qua `IEmailSender`
+  4. Người dùng mở link → nhập mật khẩu mới → `POST /api/auth/reset-password`
+  5. Hệ thống kiểm tra token: còn hạn, chưa dùng, khớp hash → đổi mật khẩu,
+     đánh dấu `used_at`, **vô hiệu mọi token còn lại** của user đó
+- **Luồng phụ**:
+  - Token hết hạn hoặc đã dùng → báo lỗi chung "link không hợp lệ hoặc đã hết hạn", yêu cầu
+    gửi lại. Không nói rõ là lỗi nào
+  - SMTP lỗi → ghi log, người dùng thử lại sau. Không lộ lỗi hạ tầng ra màn hình
+- **Kết quả**: đổi được mật khẩu mà không cần admin can thiệp
 
 ## 7. Ràng buộc và phi chức năng
 
@@ -200,6 +234,12 @@ chặn thao tác vì thiếu điểm AI.
 - **PII:** Không CV thô nào được gửi lên LLM. Chỉ `AnonymizedCv` (không tên, SĐT, email, địa
   chỉ, tên trường học cụ thể, tên công ty cụ thể — chỉ giữ kỹ năng, kinh nghiệm, mô tả công
   việc). (RB3)
-- **Chi phí:** Cache mọi lượt chấm theo `CacheKey`. Rate-limit ứng viên chấm phù hợp: 20
-  lượt/ngày. (RB2)
-- **UX chờ:** Mọi thao tác > 3s phải bất đồng bộ + progress bar. Không chặn UI.
+- **Chi phí:** Cache mọi lượt chấm ở `aiscreening.ai_score_cache` theo `CacheKey`. Rate-limit
+  ứng viên preview 20 lượt/ngày, HR 5 lô/ngày — bộ đếm ở `aiscreening.ai_usage_quotas`. Trúng
+  cache không trừ lượt. (RB2)
+- **UX chờ:** Thao tác hàng loạt (sàng lọc lô) bắt buộc bất đồng bộ + progress bar. Thao tác
+  đơn lẻ (preview một CV) được phép đồng bộ nhưng **phải có timeout cứng 30s** và phải hiện
+  trạng thái chờ. Không màn hình nào được treo vô hạn.
+- **Tính chính trực của điểm AI:** mọi chỗ hiển thị điểm **phải kèm nguồn** (`AdapterUsed`:
+  AI / Ngữ nghĩa / Từ khoá). Ba tầng fallback cho ba thang điểm khác nhau; hiện con số trần
+  sẽ khiến HR so sánh hai đại lượng không cùng đơn vị. Xem `ai-integration.md` mục 5.

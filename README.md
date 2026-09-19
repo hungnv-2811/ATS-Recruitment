@@ -56,39 +56,48 @@ Luồng cốt lõi (một chu trình):
 > AI được, kiểm thử không phụ thuộc dịch vụ ngoài.
 
 3 module nghiệp vụ: `Recruitment` (Jobs + Candidates + CVs + Applications + Interviews),
-`AiScreening` (2 port AI + adapter thật + fallback), `Identity` (User cho HR và Ứng viên, JWT).
+`AiScreening` (2 port AI + `AnonymizedCv` + adapter thật + fallback 3 tầng), `Identity`
+(User cho HR và Ứng viên, JWT, quên mật khẩu).
+
+`AnonymizedCv` và bộ ẩn danh nằm **trong `AiScreening.Domain`** — đó là điều kiện để
+constructor `internal` chặn được mọi nơi khác tự dựng CV "đã ẩn danh". Xem ADR-3.
 
 Chi tiết thiết kế và lý do trong [`docs/architecture.md`](docs/architecture.md).
 
 ## 4. Công nghệ
 
-- **Backend**: ASP.NET Core 8, EF Core, PostgreSQL 16
+- **Backend**: ASP.NET Core 10, EF Core 10, PostgreSQL 16
 - **Queue**: Redis 7 (sàng lọc AI bất đồng bộ)
 - **Frontend**: Blazor Server (fallback: Swagger UI cho demo)
 - **AI**: OpenAI SDK (chính) + Embedding + Keyword matching (fallback 3 tầng)
-- **Deploy**: Docker Compose (db, queue, api, worker, web)
+- **Email**: SMTP qua `IEmailSender`; dev dùng MailHog (không gửi ra Internet)
+- **Deploy**: Docker Compose (db, queue, api, worker, web, mailhog)
 
 ## 5. Cấu trúc thư mục
 
 ```
 ATS-Recruitment/
 ├── src/
-│   ├── Shared/ATS.SharedKernel/          # Entity, ValueObject, Result<T>
-│   ├── Modules/
-│   │   ├── Recruitment/                  # 3 project: Domain, Application, Infrastructure
-│   │   ├── AiScreening/                  # 3 project: 2 port AI + pipeline fallback
-│   │   └── Identity/                     # 3 project: User, JWT
+│   ├── Shared/
+│   │   ├── ATS.SharedKernel/             # Entity, ValueObject, Result<T>, IEmailSender
+│   │   └── ATS.Persistence/              # AtsDbContext + Migrations
+│   ├── Modules/                          # 3 module × 3 project = 9
+│   │   ├── Recruitment/                  # Domain, Application, Infrastructure
+│   │   ├── AiScreening/                  # 2 port AI + AnonymizedCv + pipeline fallback
+│   │   └── Identity/                     # User, JWT, quên mật khẩu
 │   ├── Hosts/
 │   │   ├── ATS.Api/                      # Web API + Composition Root
 │   │   ├── ATS.Worker/                   # Consumer đọc Redis queue
 │   │   └── ATS.Web/                      # Blazor
 │   └── Tests/
 │       ├── ATS.AiScreening.Tests/
-│       ├── ATS.ArchitectureTests/        # NetArchTest ép ranh giới
+│       ├── ATS.Recruitment.Tests/
+│       ├── ATS.ArchitectureTests/        # 5 quy tắc, ép bằng reflection
 │       └── ATS.IntegrationTests/
 ├── docker/                               # Dockerfile + docker-compose.yml
 ├── docs/                                 # Tài liệu thiết kế
 ├── .github/                              # CI, CODEOWNERS, templates
+├── Directory.Build.props                 # TargetFramework dùng chung — đổi .NET sửa ở đây
 └── ATS.sln
 ```
 
@@ -98,6 +107,7 @@ ATS-Recruitment/
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Kiến trúc: ràng buộc, 3 quyết định lớn, đánh đổi |
 | [`docs/use-cases.md`](docs/use-cases.md) | Tác nhân, use case, sơ đồ, trạng thái |
+| [`docs/wireframes.md`](docs/wireframes.md) | Bố cục & hành vi từng màn hình, bản đồ màn hình → tuần |
 | [`docs/database-design.md`](docs/database-design.md) | ERD, bảng, quan hệ, khóa ngoại |
 | [`docs/contracts.md`](docs/contracts.md) | Port/Interface & DTO (contract-first) |
 | [`docs/ai-integration.md`](docs/ai-integration.md) | Prompt, pipeline, fallback, chi phí |
@@ -106,14 +116,28 @@ ATS-Recruitment/
 | [`docs/code-review.md`](docs/code-review.md) | Checklist review |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Nhánh, commit, PR |
 
-## 7. Chạy thử (khi có code)
+## 7. Chạy thử
 
 ```bash
+cp docker/.env.example docker/.env     # điền OPENAI_API_KEY nếu có; để trống vẫn chạy được
 docker compose -f docker/docker-compose.yml up -d
-# API:    http://localhost:5000
-# Web:    http://localhost:5001
-# Swagger: http://localhost:5000/swagger
 ```
+
+| Dịch vụ | Địa chỉ |
+|---|---|
+| API | http://localhost:8080 |
+| Swagger | http://localhost:8080/swagger |
+| Web (Blazor) | http://localhost:8081 |
+| MailHog (xem mail khi dev) | http://localhost:8025 |
+
+Không có `OPENAI_API_KEY` thì hệ thống vẫn chạy: đặt `AI_PROVIDER=Fake` trong `docker/.env`,
+hoặc để pipeline rơi xuống `KeywordScoringAdapter` — tầng này không cần mạng, không tốn tiền.
+
+Cổng bị dự án khác chiếm thì đổi trong `docker/.env` (ví dụ `API_PORT=18080`), **đừng sửa
+`docker-compose.yml`**. Xem [`CONTRIBUTING.md`](CONTRIBUTING.md) mục 7.
+
+Migration tự chạy lúc API khởi động (`Database__AutoMigrate=true` trong compose), nên sau
+`up -d` là database đã có sẵn 3 schema.
 
 ## 8. Nhóm
 
