@@ -17,15 +17,23 @@ Xem `docs/architecture.md` mục 3.2.
 ## Cấu hình entity KHÔNG nằm ở đây
 
 Mỗi module tự viết `IEntityTypeConfiguration<T>` trong Infrastructure của mình. Composition
-Root đăng ký assembly của module với `AtsDbContextConfigurator`, và `AtsDbContext` nạp qua
+Root **truyền thẳng** danh sách assembly vào lúc đăng ký, và `AtsDbContext` nạp qua
 `ApplyConfigurationsFromAssembly`.
 
 Nhờ vậy `AtsDbContext` **không tham chiếu project của module nào** — phụ thuộc đi đúng chiều.
 
 ```csharp
 // ATS.Api/Program.cs — Composition Root
-AtsDbContextConfigurator.Register(typeof(ATS.Recruitment.Infrastructure.InfrastructureAssemblyMarker).Assembly);
+builder.Services.AddAtsPersistence(
+    connectionString,
+    typeof(ATS.Recruitment.Infrastructure.InfrastructureAssemblyMarker).Assembly,
+    typeof(ATS.AiScreening.Infrastructure.InfrastructureAssemblyMarker).Assembly,
+    typeof(ATS.Identity.Infrastructure.InfrastructureAssemblyMarker).Assembly);
 ```
+
+`AddAtsPersistence` là **cách duy nhất** đăng ký `AtsDbContext`, và nó bắt buộc nhận danh
+sách assembly. Nên không tồn tại trạng thái "đã tạo DbContext nhưng chưa đăng ký module" —
+quên thì hỏng ngay lúc khởi động, không phải âm thầm mất bảng.
 
 ## Ba schema
 
@@ -39,11 +47,16 @@ AtsDbContextConfigurator.Register(typeof(ATS.Recruitment.Infrastructure.Infrastr
 
 ```bash
 dotnet tool restore
-dotnet dotnet-ef migrations add TenMigration --project src/Shared/ATS.Persistence
+dotnet dotnet-ef migrations add TenMigration \
+  --project src/Shared/ATS.Persistence \
+  --startup-project src/Hosts/ATS.Api
 ```
 
-Không cần `--startup-project`: `AtsDbContextFactory` (design-time) đã lo phần đó, nên tạo
-migration không phải kéo `Microsoft.EntityFrameworkCore.Design` vào `ATS.Api`.
+`--startup-project` là **bắt buộc**, không phải tuỳ chọn. EF dựng model bằng chính
+Composition Root của `ATS.Api`, nên danh sách module lúc sinh migration và lúc chạy
+luôn giống nhau. Bỏ nó đi (hoặc dùng một design-time factory riêng) thì EF dựng model
+với **danh sách module rỗng** và sinh ra migration trống — build xanh, CI xanh, chỉ vỡ
+lúc chạy.
 
 Xem SQL trước khi chạy:
 

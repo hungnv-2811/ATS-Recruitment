@@ -16,6 +16,22 @@
 # ở 8080 thì đặt API_PORT=18080 trong docker/.env, KHÔNG sửa file này —
 # sửa file này là cả nhóm phải sửa theo.
 
+# Cấu hình dùng chung của api và worker. Viết MỘT lần ở đây rồi merge vào cả hai
+# bằng `<<: *app-common`.
+#
+# Đây là cách làm cho "AiProvider của api và worker phải giống nhau" trở thành
+# bất khả thi về mặt cú pháp, thay vì một dòng comment cảnh báo mà người sửa vội
+# có thể bỏ qua. Giá trị chỉ tồn tại đúng một literal.
+x-app-common: &app-common
+  ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
+  Redis__ConnectionString: "queue:6379"
+  FileStorage__RootPath: "/app/data/cvs"
+  OpenAI__ApiKey: "${OPENAI_API_KEY}"
+  AiProvider: "${AI_PROVIDER:-Fake}"
+  Smtp__Host: "${SMTP_HOST:-mailhog}"
+  Smtp__Port: "${SMTP_PORT:-1025}"
+  Smtp__From: "${SMTP_FROM:-no-reply@ats.local}"
+
 services:
   db:
     image: postgres:16-alpine
@@ -59,27 +75,22 @@ services:
       queue:
         condition: service_healthy
     environment:
-      ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
-      Redis__ConnectionString: "queue:6379"
-      FileStorage__RootPath: "/app/data/cvs"
       # API CÓ gọi LLM — nhưng chỉ cho đúng một việc: POST /api/ai/score-preview,
       # tức ứng viên xem % phù hợp của 1 CV trước khi nộp (UC-05). Đây là ngoại lệ
       # có chủ đích của ADR-2, có timeout cứng 30s và rate-limit 20 lượt/ngày chặn lại.
       # Sàng lọc HÀNG LOẠT vẫn đi qua queue → worker, API không bao giờ chạy lô.
-      OpenAI__ApiKey: "${OPENAI_API_KEY}"
-      # ⚠ PHẢI giống hệt AiProvider của worker. Lệch nhau thì ứng viên thấy điểm giả
-      #   còn HR thấy điểm thật cho cùng một hồ sơ.
-      AiProvider: "${AI_PROVIDER:-Fake}"
+      <<: *app-common
+      # Development để Swagger UI bật — kế hoạch dự phòng khi chậm tiến độ dựa vào
+      # Swagger để demo, nên nó phải chạy được trong container. Deploy thật thì đặt
+      # ASPNETCORE_ENVIRONMENT=Production trong docker/.env.
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
       Ai__PreviewTimeoutSeconds: "30"
-      # Ap migration luc khoi dong — chi dung cho dev/demo.
-      # Khi deploy that: dat "false" va chay `dotnet ef database update` o buoc rieng.
+      # Áp migration lúc khởi động — chỉ dùng cho dev/demo.
+      # Khi deploy thật: đặt "false" và chạy `dotnet ef database update` ở bước riêng.
       Database__AutoMigrate: "${DB_AUTO_MIGRATE:-true}"
       Jwt__Secret: "${JWT_SECRET:-change-me-at-least-32-characters-long-secret}"
       Jwt__Issuer: "${JWT_ISSUER:-ats-recruitment}"
       Jwt__Audience: "${JWT_AUDIENCE:-ats-recruitment-users}"
-      Smtp__Host: "${SMTP_HOST:-mailhog}"
-      Smtp__Port: "${SMTP_PORT:-1025}"
-      Smtp__From: "${SMTP_FROM:-no-reply@ats.local}"
     volumes:
       - cv-files:/app/data/cvs
     ports:
@@ -100,17 +111,10 @@ services:
       queue:
         condition: service_healthy
     environment:
-      ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
-      Redis__ConnectionString: "queue:6379"
-      FileStorage__RootPath: "/app/data/cvs"
       # Khoá AI đọc từ docker/.env — KHÔNG commit file đó.
       # Worker lo phần nặng: sàng lọc hàng loạt (ADR-2) và sinh câu hỏi phỏng vấn (ADR-3).
-      OpenAI__ApiKey: "${OPENAI_API_KEY}"
-      # ⚠ Cùng một giá trị với api ở trên. Xem ghi chú tại service `api`.
-      AiProvider: "${AI_PROVIDER:-Fake}"
-      Smtp__Host: "${SMTP_HOST:-mailhog}"
-      Smtp__Port: "${SMTP_PORT:-1025}"
-      Smtp__From: "${SMTP_FROM:-no-reply@ats.local}"
+      # Cùng một literal với api, không thể lệch.
+      <<: *app-common
     volumes:
       - cv-files:/app/data/cvs
     restart: unless-stopped

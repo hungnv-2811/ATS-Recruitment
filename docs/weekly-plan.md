@@ -73,11 +73,12 @@ lại tài liệu của mình.
 
 - [x] TV1: Tạo `ATS.sln`, **18 project**, project references chuẩn
       (1 SharedKernel + 1 Persistence + 3 module × 3 layer + 3 host + 4 test project)
-  - [x] `ATS.SharedKernel`: `Entity<TId>`, `ValueObject`, `Result<T>`, `Error`, `IUnitOfWork`,
+  - [x] `ATS.SharedKernel`: `Entity<TId>`, `Result<T>`, `Error`, `IUnitOfWork`,
         `Ports/IEmailSender`
-  - [x] `ATS.Persistence`: `AtsDbContext` + `AtsDbContextConfigurator` + design-time factory
+  - [x] `ATS.Persistence`: `AtsDbContext` + `AddAtsPersistence(...)` nhận danh sách module
   - [x] Migration `20260919131605_InitialCreate` — tạo 3 schema, chưa có bảng
-  - [x] `Directory.Build.props`: `TargetFramework` khai báo một chỗ cho cả 18 project
+  - [x] `Directory.Build.props` + `Directory.Packages.props` + `global.json`: khung, version
+        package và feature band SDK mỗi thứ khai báo đúng một chỗ
   - [x] `dotnet-tools.json`: ghim version `dotnet-ef` cho cả nhóm
 - [x] TV2: `ATS.Api` skeleton — Swagger, JWT middleware (cấu hình sẵn, chưa endpoint nào
       `[Authorize]`), `GET /health`

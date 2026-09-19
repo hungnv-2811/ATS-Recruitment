@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using ATS.SharedKernel;
+using Microsoft.EntityFrameworkCore;
 
 namespace ATS.Persistence;
 
@@ -12,27 +13,32 @@ namespace ATS.Persistence;
 /// vi pham ranh gioi module (muc 3.3).
 ///
 /// Cau hinh entity KHONG nam o day. Moi module tu viet IEntityTypeConfiguration
-/// trong Infrastructure cua minh, va duoc nap bang ApplyConfigurationsFromAssembly
-/// o <see cref="AtsDbContextConfigurator"/>.
+/// trong Infrastructure cua minh; danh sach assembly duoc TRUYEN VAO qua
+/// <see cref="ModuleAssemblies"/>, khong phai dang ky ngam vao mot bien static.
+/// Nho vay khong the dung duoc DbContext nay ma thieu danh sach module.
 /// </remarks>
-public class AtsDbContext : DbContext
+public class AtsDbContext : DbContext, IUnitOfWork
 {
     public const string IdentitySchema = "identity";
     public const string RecruitmentSchema = "recruitment";
     public const string AiScreeningSchema = "aiscreening";
 
-    public AtsDbContext(DbContextOptions<AtsDbContext> options)
+    private readonly ModuleAssemblies _modules;
+
+    public AtsDbContext(DbContextOptions<AtsDbContext> options, ModuleAssemblies modules)
         : base(options)
-    {
-    }
+        => _modules = modules;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Tuan 2 chua co entity nao. Migration dau tien chi tao 3 schema.
-        // Tu tuan 3 tro di, moi module them cau hinh cua minh qua
-        // AtsDbContextConfigurator.ApplyModuleConfigurations.
-        AtsDbContextConfigurator.ApplyModuleConfigurations(modelBuilder);
+        // Tuan 2 chua module nao co entity, nen vong lap nay chua sinh ra bang gi.
+        // Tu tuan 3, moi IEntityTypeConfiguration dat trong *.Infrastructure se
+        // duoc nap tu dong ma AtsDbContext khong phai tham chieu project nao.
+        foreach (var moduleAssembly in _modules.Items)
+        {
+            modelBuilder.ApplyConfigurationsFromAssembly(moduleAssembly);
+        }
     }
 }

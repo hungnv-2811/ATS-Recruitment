@@ -2,21 +2,19 @@
 
   <!--
     Thuoc tinh dung chung cho MOI project trong solution.
-    Doi phien ban .NET: sua DUY NHAT dong TargetFramework duoi day,
-    roi sua theo 3 cho ngoai code: docker/Dockerfile, .github/workflows/ci.yml,
-    .github/workflows/ai-smoke.yml.
+    Doi phien ban .NET: sua TargetFramework duoi day VA `sdk.version` trong
+    global.json. Hai workflow CI doc thang global.json nen khong phai sua; Dockerfile
+    nhan ARG DOTNET_VERSION (mac dinh 10.0) nen chi sua khi len major moi.
+
+    LangVersion khong khai bao: net10.0 da mac dinh lay ban C# moi nhat cua SDK.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- Canh bao = loi. Ky luat nay re khi ap tu dau, dat khi ap vao thang 8. -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-
-    <!-- Khong sinh file .exe cho project thu vien. -->
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup>

@@ -1,48 +1,44 @@
-﻿namespace ATS.SharedKernel;
+namespace ATS.SharedKernel;
 
 /// <summary>
 /// Ket qua thanh cong/that bai ma KHONG dung exception cho luong nghiep vu binh thuong.
 /// Xem docs/contracts.md muc 7.
 /// </summary>
+/// <remarks>
+/// Chi co MOT nguon su that la <see cref="Error"/>; <see cref="IsSuccess"/> suy ra tu no.
+/// Nho vay trang thai mau thuan (thanh cong ma co loi) khong bieu dien duoc, thay vi
+/// bieu dien duoc roi phai viet guard de chan.
+/// </remarks>
 public class Result
 {
-    protected Result(bool isSuccess, Error error)
-    {
-        if (isSuccess && error != Error.None)
-        {
-            throw new InvalidOperationException("Ket qua thanh cong khong duoc kem loi.");
-        }
-
-        if (!isSuccess && error == Error.None)
-        {
-            throw new InvalidOperationException("Ket qua that bai phai kem loi.");
-        }
-
-        IsSuccess = isSuccess;
-        Error = error;
-    }
-
-    public bool IsSuccess { get; }
-
-    public bool IsFailure => !IsSuccess;
+    protected Result(Error error) => Error = error;
 
     public Error Error { get; }
 
-    public static Result Success() => new(true, Error.None);
+    public bool IsSuccess => Error == Error.None;
 
-    public static Result Failure(Error error) => new(false, error);
+    public bool IsFailure => !IsSuccess;
 
-    public static Result<TValue> Success<TValue>(TValue value) => new(value, true, Error.None);
+    public static Result Success() => new(Error.None);
 
-    public static Result<TValue> Failure<TValue>(Error error) => new(default, false, error);
+    public static Result Failure(Error error) => new(MustBeReal(error));
+
+    public static Result<TValue> Success<TValue>(TValue value) => new(value, Error.None);
+
+    public static Result<TValue> Failure<TValue>(Error error) => new(default, MustBeReal(error));
+
+    private static Error MustBeReal(Error error)
+        => error == Error.None
+            ? throw new ArgumentException("Ket qua that bai phai kem loi.", nameof(error))
+            : error;
 }
 
 public sealed class Result<TValue> : Result
 {
     private readonly TValue? _value;
 
-    internal Result(TValue? value, bool isSuccess, Error error)
-        : base(isSuccess, error)
+    internal Result(TValue? value, Error error)
+        : base(error)
         => _value = value;
 
     public TValue Value => IsSuccess

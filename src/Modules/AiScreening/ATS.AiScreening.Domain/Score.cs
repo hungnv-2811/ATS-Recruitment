@@ -5,11 +5,8 @@ public sealed record Score
 {
     public Score(int value)
     {
-        if (value is < 0 or > 100)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(value), value, "Diem phu hop phai nam trong khoang [0, 100].");
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(value);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 100);
 
         Value = value;
     }
