@@ -7,18 +7,23 @@
 #     --build-arg PROJECT_DLL=ATS.Api.dll \
 #     -t ats-api .
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG PROJECT_PATH=src/Hosts/ATS.Api
 WORKDIR /src
 
-# Copy solution + toàn bộ src (cấu trúc Modular Monolith có 15+ project — copy nguyên cây gọn hơn).
-COPY ATS.sln ./
+# Copy solution + toàn bộ src (Modular Monolith có 18 project — copy nguyên cây gọn hơn).
+# Hai file props ở thư mục gốc PHẢI copy cùng:
+#   Directory.Build.props    — TargetFramework dùng chung
+#   Directory.Packages.props — version của mọi package (Central Package Management)
+# Thiếu file thứ hai thì .csproj không có Version nào cả, NuGet tụt về bản thấp nhất
+# (Npgsql 1.0.0 → npgsql 3.1.5 có lỗ hổng bảo mật) và restore đỏ.
+COPY ATS.sln Directory.Build.props Directory.Packages.props ./
 COPY src/ ./src/
 
 RUN dotnet restore ./ATS.sln
 RUN dotnet publish ./${PROJECT_PATH}/*.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 ARG PROJECT_DLL=ATS.Api.dll
 WORKDIR /app
 COPY --from=build /app/publish .

@@ -1,11 +1,20 @@
 # TV1 phụ trách, hoàn thiện ở tuần 8.
 # Chạy:  docker compose -f docker/docker-compose.yml up --build
 #
-# Năm container, khớp với sơ đồ triển khai trong docs/architecture.md mục 6:
-#   web → api → db          (nghiệp vụ, đồng bộ)
-#   api → queue → worker    (sàng lọc AI, bất đồng bộ — xem ADR-02)
+# Sáu container, khớp với sơ đồ triển khai trong docs/architecture.md mục 5:
+#   web → api → db            (nghiệp vụ, đồng bộ)
+#   api → queue → worker      (sàng lọc AI hàng loạt, bất đồng bộ — xem ADR-2)
+#   api → OpenAI              (preview 1 CV cho ứng viên, đồng bộ — ngoại lệ của ADR-2, UC-05)
+#   api/worker → mailhog      (email; dev không gửi ra Internet)
 #
 # CSDL là PostgreSQL, không phải SQL Server: xem docs/architecture.md mục 3.4.
+#
+# File biến môi trường: docker/.env (KHÔNG phải .env ở thư mục gốc).
+# `docker compose -f docker/docker-compose.yml` chỉ nạp .env nằm cạnh file này.
+#
+# Cổng phía host đều đổi được qua biến môi trường. Máy ai đang chạy sẵn thứ khác
+# ở 8080 thì đặt API_PORT=18080 trong docker/.env, KHÔNG sửa file này —
+# sửa file này là cả nhóm phải sửa theo.
 
 services:
   db:
@@ -15,7 +24,7 @@ services:
       POSTGRES_USER: ats
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-Dev_Password123!}"
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -26,10 +35,10 @@ services:
   queue:
     image: redis:7-alpine
     # appendonly: ghi việc xuống đĩa để khởi động lại không mất hàng đợi.
-    # Đây chính là điểm khác biệt so với hàng đợi in-memory đã bị loại ở ADR-02.
+    # Đây chính là điểm khác biệt so với hàng đợi in-memory đã bị loại ở ADR-2.
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -53,12 +62,28 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
       Redis__ConnectionString: "queue:6379"
       FileStorage__RootPath: "/app/data/cvs"
+      # API CÓ gọi LLM — nhưng chỉ cho đúng một việc: POST /api/ai/score-preview,
+      # tức ứng viên xem % phù hợp của 1 CV trước khi nộp (UC-05). Đây là ngoại lệ
+      # có chủ đích của ADR-2, có timeout cứng 30s và rate-limit 20 lượt/ngày chặn lại.
+      # Sàng lọc HÀNG LOẠT vẫn đi qua queue → worker, API không bao giờ chạy lô.
       OpenAI__ApiKey: "${OPENAI_API_KEY}"
+      # ⚠ PHẢI giống hệt AiProvider của worker. Lệch nhau thì ứng viên thấy điểm giả
+      #   còn HR thấy điểm thật cho cùng một hồ sơ.
       AiProvider: "${AI_PROVIDER:-Fake}"
+      Ai__PreviewTimeoutSeconds: "30"
+      # Ap migration luc khoi dong — chi dung cho dev/demo.
+      # Khi deploy that: dat "false" va chay `dotnet ef database update` o buoc rieng.
+      Database__AutoMigrate: "${DB_AUTO_MIGRATE:-true}"
+      Jwt__Secret: "${JWT_SECRET:-change-me-at-least-32-characters-long-secret}"
+      Jwt__Issuer: "${JWT_ISSUER:-ats-recruitment}"
+      Jwt__Audience: "${JWT_AUDIENCE:-ats-recruitment-users}"
+      Smtp__Host: "${SMTP_HOST:-mailhog}"
+      Smtp__Port: "${SMTP_PORT:-1025}"
+      Smtp__From: "${SMTP_FROM:-no-reply@ats.local}"
     volumes:
       - cv-files:/app/data/cvs
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8080}:8080"
 
   # Worker KHÔNG mở cổng ra ngoài — nó chỉ đọc hàng đợi.
   # Cần chạy nhiều bản sao khi lô CV lớn:  docker compose up --scale worker=3
@@ -78,12 +103,25 @@ services:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
       Redis__ConnectionString: "queue:6379"
       FileStorage__RootPath: "/app/data/cvs"
-      # Khoá AI đọc từ file .env — KHÔNG commit file này.
-      # Chỉ worker cần khoá: API không bao giờ gọi thẳng LLM (ADR-02, ADR-03).
+      # Khoá AI đọc từ docker/.env — KHÔNG commit file đó.
+      # Worker lo phần nặng: sàng lọc hàng loạt (ADR-2) và sinh câu hỏi phỏng vấn (ADR-3).
       OpenAI__ApiKey: "${OPENAI_API_KEY}"
-      AiProvider: "${AI_PROVIDER:-OpenAI}"
+      # ⚠ Cùng một giá trị với api ở trên. Xem ghi chú tại service `api`.
+      AiProvider: "${AI_PROVIDER:-Fake}"
+      Smtp__Host: "${SMTP_HOST:-mailhog}"
+      Smtp__Port: "${SMTP_PORT:-1025}"
+      Smtp__From: "${SMTP_FROM:-no-reply@ats.local}"
     volumes:
       - cv-files:/app/data/cvs
+    restart: unless-stopped
+
+  # Hộp thư giả cho môi trường dev: mọi email (mời phỏng vấn, đặt lại mật khẩu)
+  # rơi vào đây thay vì gửi ra Internet. Mở http://localhost:8025 để đọc.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "${MAILHOG_UI_PORT:-8025}:8025"   # giao diện web
+      - "${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP
     restart: unless-stopped
 
   web:
@@ -98,7 +136,7 @@ services:
     environment:
       ApiBaseUrl: "http://api:8080"
     ports:
-      - "8081:8080"
+      - "${WEB_PORT:-8081}:8080"
 
 volumes:
   pg-data:
