@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop, 'feature/**' ]
+    branches: [ main, nvhung, 'feature/**' ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, nvhung ]
 
 # Push mới vào một PR sẽ huỷ lần chạy cũ còn dở — đỡ xếp hàng chờ khi cả nhóm cùng push.
 concurrency:
@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Đây là status check bắt buộc trong branch protection của `main` và `develop`.
+  # Đây là status check bắt buộc trong branch protection của `main` và `nvhung`.
   # Đổi tên job này thì phải vào Settings → Branches chọn lại check, nếu không
   # branch protection sẽ chờ một check không bao giờ chạy. Xem CONTRIBUTING.md mục 3.6.
   build-and-test:
