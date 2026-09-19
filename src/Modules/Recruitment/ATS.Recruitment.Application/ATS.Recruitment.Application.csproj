@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../ATS.Recruitment.Domain/ATS.Recruitment.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

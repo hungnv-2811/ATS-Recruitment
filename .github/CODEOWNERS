@@ -1,44 +1,63 @@
-# CODEOWNERS — tự động gán reviewer theo tầng kiến trúc.
+# CODEOWNERS — tự động gán reviewer theo MODULE (không phải layer).
 #
-# GitHub đọc file này khi có PR: ai sở hữu file bị chạm sẽ được gán làm reviewer,
-# không ai phải nhớ bảng phân công. Xem CONTRIBUTING.md mục 3.3 và mục 4.
+# GitHub đọc file này khi có PR: ai sở hữu file bị chạm sẽ được gán làm reviewer.
+# Xem CONTRIBUTING.md mục 4 và docs/team-assignment.md.
 #
 # !!! VIỆC TUẦN 1: thay 4 tài khoản dưới đây bằng username GitHub thật của từng người,
 #     nếu không GitHub sẽ bỏ qua toàn bộ file này mà không báo lỗi.
 #
-#   @tv1-hoat      → TV1 Hoạt      — Dữ liệu & Hạ tầng
-#   @tv2-tuananh   → TV2 Tuấn Anh  — Nghiệp vụ & API
-#   @tv3-hung      → TV3 Hùng      — Giao diện
-#   @tv4-tien      → TV4 Tiền      — AI & Chất lượng
+#   @tv1-hoat      → TV1 Hoạt      — Kiến trúc & Data
+#   @tv2-tuananh   → TV2 Tuấn Anh  — Backend Business (Recruitment + Identity)
+#   @tv3-hung      → TV3 Hùng      — Frontend
+#   @tv4-tien      → TV4 Tiền      — AI & Test
 #
-# Quy tắc khớp: dòng SAU ghi đè dòng TRƯỚC, nên thứ tự dưới đây có chủ đích.
+# Quy tắc khớp: dòng SAU ghi đè dòng TRƯỚC.
 
-# Mặc định: nhóm trưởng xem mọi thứ không thuộc tầng nào rõ ràng.
-*                       @tv1-hoat
+# Mặc định
+*                                       @tv1-hoat
 
-# ── Tầng dữ liệu & hạ tầng ───────────────────────────────────────────────
-/src/ATS.Data/          @tv1-hoat @tv2-tuananh
-/docker/                @tv1-hoat
-/.github/               @tv1-hoat
+# ── Shared kernel: đụng chạm rộng → cả nhóm review ──────────────────────
+/src/Shared/                            @tv1-hoat @tv2-tuananh @tv3-hung @tv4-tien
 
-# ── Tầng nghiệp vụ & API ─────────────────────────────────────────────────
-/src/ATS.Business/      @tv2-tuananh @tv3-hung
-/src/ATS.Api/           @tv2-tuananh @tv3-hung
+# ── Module Recruitment ──────────────────────────────────────────────────
+/src/Modules/Recruitment/               @tv2-tuananh @tv1-hoat
 
-# ── Tầng giao diện ───────────────────────────────────────────────────────
-/src/ATS.Web/           @tv3-hung @tv2-tuananh
+# ── Module Identity ─────────────────────────────────────────────────────
+/src/Modules/Identity/                  @tv2-tuananh @tv1-hoat
 
-# ── AI & chất lượng ──────────────────────────────────────────────────────
-/src/ATS.AI/            @tv4-tien @tv1-hoat
-/src/ATS.Tests/         @tv4-tien @tv1-hoat
+# ── Module AiScreening — mọi PR ở đây phải có TV4 approve ───────────────
+/src/Modules/AiScreening/               @tv4-tien @tv1-hoat
 
-# ── Contract dùng chung: cần 2 approve, gán cả nhóm ─────────────────────
-/src/ATS.Contracts/     @tv1-hoat @tv2-tuananh @tv3-hung @tv4-tien
+# ── Hosts ───────────────────────────────────────────────────────────────
+/src/Hosts/ATS.Api/                     @tv2-tuananh
+/src/Hosts/ATS.Worker/                  @tv1-hoat @tv4-tien
+/src/Hosts/ATS.Web/                     @tv3-hung
 
-# ── Tài liệu: người viết chương nào review chương đó ─────────────────────
-/docs/architecture.md       @tv1-hoat
-/docs/database-design.md    @tv1-hoat
-/docs/contracts.md          @tv2-tuananh
-/docs/ai-integration.md     @tv4-tien
-/docs/code-review.md        @tv1-hoat
-/docs/worklog/              @tv1-hoat
+# ── Tests ───────────────────────────────────────────────────────────────
+/src/Tests/ATS.ArchitectureTests/       @tv4-tien
+/src/Tests/ATS.AiScreening.Tests/       @tv4-tien
+/src/Tests/ATS.Recruitment.Tests/       @tv2-tuananh
+/src/Tests/ATS.IntegrationTests/        @tv4-tien @tv1-hoat
+
+# ── Hạ tầng ─────────────────────────────────────────────────────────────
+/docker/                                @tv1-hoat
+/.github/                               @tv1-hoat
+
+# Hai file props này chi phối CẢ 18 project: đổi một dòng là cả solution đổi theo.
+# dotnet-tools.json ghim version dotnet-ef — lệch version là migration của người này
+# không chạy được trên máy người kia.
+/Directory.Build.props                  @tv1-hoat @tv4-tien
+/Directory.Packages.props               @tv1-hoat @tv4-tien
+/dotnet-tools.json                      @tv1-hoat
+
+# ── Tài liệu ────────────────────────────────────────────────────────────
+/docs/architecture.md                   @tv1-hoat
+/docs/database-design.md                @tv1-hoat
+/docs/contracts.md                      @tv2-tuananh
+/docs/use-cases.md                      @tv2-tuananh
+/docs/wireframes.md                     @tv3-hung
+/docs/ai-integration.md                 @tv4-tien
+/docs/weekly-plan.md                    @tv1-hoat
+/docs/team-assignment.md                @tv1-hoat
+/docs/code-review.md                    @tv4-tien
+/docs/worklog/                          @tv1-hoat

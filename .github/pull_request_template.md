@@ -4,15 +4,23 @@
 
 Closes #
 
-## Tầng bị ảnh hưởng
+## Phần bị ảnh hưởng
 
-- [ ] `ATS.Contracts` — ⚠️ **cần 2 approve** và **đã báo cả nhóm trước khi mở PR**
-- [ ] `ATS.Data`
-- [ ] `ATS.Business` / `ATS.Api`
+- [ ] **Port / contract** (`*.Domain/Ports/`, `SharedKernel/Ports/`) — ⚠️ **cần 2 approve** và
+      **đã báo cả nhóm trước khi mở PR**
+- [ ] `ATS.SharedKernel` / `ATS.Persistence` (migration → **TV1 review bắt buộc**)
+- [ ] `ATS.Recruitment.*` / `ATS.Identity.*` / `ATS.Api`
 - [ ] `ATS.Web`
-- [ ] `ATS.AI` / `ATS.Tests`
-- [ ] `docker/` / `.github/`
+- [ ] `ATS.AiScreening.*` / `src/Tests/` (→ **TV4 review bắt buộc**)
+- [ ] `docker/` / `.github/` / `Directory.*.props`
 - [ ] Chỉ tài liệu (`docs/`, `*.md`) — được bỏ qua yêu cầu test
+
+### Nếu PR chạm module AI, xác nhận thêm
+
+- [ ] Không thêm `InternalsVisibleTo` vào `ATS.AiScreening.Domain` (phá ADR-3 — xem
+      `src/Tests/ATS.ArchitectureTests/README.md`)
+- [ ] Port AI vẫn chỉ nhận `AnonymizedCv`, không nhận `string`
+- [ ] Mọi chỗ hiển thị điểm AI đều kèm `AdapterUsed`
 
 ## Cách kiểm thử
 
@@ -29,7 +37,10 @@ Closes #
 
 ## Checklist của tác giả
 
-- [ ] `dotnet build` và `dotnet test` chạy xanh ở máy tôi
+- [ ] `dotnet build` xanh và **không có warning** (`TreatWarningsAsErrors` đang bật)
+- [ ] `dotnet test` xanh, gồm cả 5 quy tắc `ATS.ArchitectureTests`
+- [ ] Nếu sửa `Directory.Packages.props` hoặc Dockerfile: đã thử `docker compose build`
+      (build local xanh **không** bảo đảm build Docker xanh)
 - [ ] Đã viết unit test cho phần mới (hoặc PR này chỉ sửa tài liệu)
 - [ ] Không commit API key, connection string thật, hay dữ liệu ứng viên thật
 - [ ] Không sửa file thuộc tầng người khác (nếu có: đã thống nhất với chủ tầng, ghi tên vào đây)

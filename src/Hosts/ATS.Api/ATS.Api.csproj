@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="../../Modules/Recruitment/ATS.Recruitment.Infrastructure/ATS.Recruitment.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/AiScreening/ATS.AiScreening.Infrastructure/ATS.AiScreening.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/Identity/ATS.Identity.Infrastructure/ATS.Identity.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+
+</Project>
