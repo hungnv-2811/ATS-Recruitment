@@ -5,8 +5,8 @@
 | Nhánh | Vai trò |
 |---|---|
 | `main` | Ổn định, đã deploy. Không commit trực tiếp. |
-| `develop` | Tích hợp. Không commit trực tiếp. |
-| `feature/*` | Từng việc. Tạo từ `develop`, merge lại vào `develop`. |
+| `nvhung` | Tích hợp. Không commit trực tiếp. |
+| `feature/*` | Từng việc. Tạo từ `nvhung`, merge lại vào `nvhung`. |
 
 **Đặt tên nhánh kèm phạm vi** để nhìn là biết ai làm. Dùng **slug tiếng Anh, không dấu**, ngắn
 gọn 3–5 từ:
@@ -50,7 +50,7 @@ Ngôn ngữ commit: **tiếng Việt không dấu** để tránh lỗi encoding 
 
 ## 3. Pull Request
 
-- PR từ `feature/*` → `develop`. PR từ `develop` → `main` chỉ khi có release.
+- PR từ `feature/*` → `nvhung`. PR từ `nvhung` → `main` chỉ khi có release.
 - Tiêu đề PR: `<loại>(<phạm vi>): <mô tả>` giống commit
 - Body PR có 2 phần: **What** (làm gì) + **Why** (vì sao)
 - Screenshot nếu là UI, curl command nếu là API

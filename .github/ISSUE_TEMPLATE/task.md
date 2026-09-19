@@ -25,7 +25,7 @@ Tuần
 - [ ] Có unit test
 - [ ] CI xanh
 - [ ] **PR đã có ≥ 1 approve** (PR chạm port/contract: 2 approve)
-- [ ] Đã gộp vào `develop` **qua PR** — không commit thẳng
+- [ ] Đã gộp vào `nvhung` **qua PR** — không commit thẳng
 - [ ] Đã ghi vào worklog cá nhân
 
 ## Phụ thuộc
