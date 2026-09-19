@@ -25,8 +25,8 @@
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
 | `ATS.sln` + 18 project, project reference đúng chiều phụ thuộc | #— | #— | Xong |
-| `ATS.SharedKernel`: `Entity<TId>`, `ValueObject`, `Result<T>`, `Error`, `IEmailSender` | #— | #— | Xong |
-| `ATS.Persistence`: `AtsDbContext` + `AtsDbContextConfigurator` + design-time factory | #— | #— | Xong |
+| `ATS.SharedKernel`: `Entity<TId>`, `Result<T>`, `Error`, `IEmailSender` | #— | #— | Xong |
+| `ATS.Persistence`: `AtsDbContext` + `AddAtsPersistence(...)` nhận danh sách module | #— | #— | Xong |
 | Migration `InitialCreate` — tạo 3 schema | #— | #— | Xong |
 | `Directory.Build.props` (TargetFramework một chỗ) + `dotnet-tools.json` (ghim EF) | #— | #— | Xong |
 | `docker-compose.yml` 6 service + Dockerfile .NET 10 | #— | #— | Xong |

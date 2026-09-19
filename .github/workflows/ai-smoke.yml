@@ -27,20 +27,17 @@ jobs:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
 
-      - name: Cài .NET 10
+      - name: Cài .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
-      - name: Kiểm tra đã có solution chưa
-        id: check
-        run: |
-          if ls *.sln src/*.sln >/dev/null 2>&1; then
-            echo "found=true" >> $GITHUB_OUTPUT
-          else
-            echo "found=false" >> $GITHUB_OUTPUT
-            echo "::notice::Chưa có file .sln — bỏ qua smoke test."
-          fi
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Kiểm tra đã cấu hình OPENAI_API_KEY chưa
         id: key
@@ -56,7 +53,7 @@ jobs:
 
       # Chỉ chạy các test gắn [Trait("Category", "AiSmoke")] — 1-2 test, không phải cả bộ.
       - name: Smoke test adapter AI thật
-        if: steps.check.outputs.found == 'true' && steps.key.outputs.found == 'true'
+        if: steps.key.outputs.found == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           AiProvider: OpenAI

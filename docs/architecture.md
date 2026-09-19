@@ -218,7 +218,7 @@ Solution `ATS.sln` chia làm **4 vùng**: `Shared`, `Modules`, `Hosts`, `Tests`.
 src/
 ├── Shared/
 │   ├── ATS.SharedKernel/                # KHÔNG chứa nghiệp vụ, chỉ primitive
-│   │                                      # Entity, ValueObject, Result<T>, Error,
+│   │                                      # Entity<TId>, Result<T>, Error,
 │   │                                      # IUnitOfWork, Ports/IEmailSender
 │   └── ATS.Persistence/                 # AtsDbContext + Migrations (xem 3.2)
 ├── Modules/
@@ -325,9 +325,17 @@ Một DbContext dùng chung cần một chỗ ở chung. Ba phương án đã c�
 | Project riêng `ATS.Persistence` | **Đã chọn.** Chỉ ba project Infrastructure reference nó; Domain không thấy nó |
 
 Cấu hình entity **không** nằm trong `ATS.Persistence`. Mỗi module tự viết
-`IEntityTypeConfiguration` trong Infrastructure của mình rồi đăng ký assembly với
-`AtsDbContextConfigurator` ở Composition Root. Nhờ vậy `AtsDbContext` không phải tham chiếu
-project của module nào — đúng chiều phụ thuộc.
+`IEntityTypeConfiguration` trong Infrastructure của mình; Composition Root truyền danh sách
+assembly vào `AddAtsPersistence(...)`. Nhờ vậy `AtsDbContext` không phải tham chiếu project
+của module nào — đúng chiều phụ thuộc.
+
+Danh sách module là **tham số bắt buộc**, không phải một lời gọi đăng ký riêng vào biến
+static. Khác biệt này quan trọng hơn vẻ ngoài của nó: với biến static thì quên gọi, hoặc gọi
+sau khi model đã dựng, đều không báo lỗi — chỉ làm bảng của module đó biến mất. Và đường
+design-time (`dotnet ef`) vốn không đi qua Composition Root sẽ dựng model rỗng, sinh ra
+migration trống, hoặc tệ hơn là `DropTable` cho toàn bộ bảng đã có. Vì vậy lệnh tạo migration
+**bắt buộc** dùng `--startup-project src/Hosts/ATS.Api`: model lúc sinh migration và model
+lúc chạy là cùng một model.
 
 Đánh đổi: nếu sau này tách microservices, phải chia lại DbContext. Chấp nhận vì đây là đồ án
 học, không phải sản phẩm production.
@@ -374,8 +382,10 @@ Lý do không chọn .NET 8: học phần kéo dài 10 tuần và kết thúc cu
 .NET 8 hết hạn hỗ trợ**. Bảo vệ một đồ án trên nền tảng vừa hết hỗ trợ là điểm trừ không cần
 thiết. .NET 10 được hỗ trợ tới tháng 11/2028.
 
-Đổi phiên bản về sau chỉ cần sửa 4 chỗ: `Directory.Build.props`, `docker/Dockerfile` (2 dòng
-`FROM`), `.github/workflows/ci.yml`, `.github/workflows/ai-smoke.yml`.
+Đổi phiên bản về sau chỉ cần sửa 2 chỗ: `global.json` (feature band của SDK) và
+`Directory.Build.props` (`TargetFramework` của code). Hai workflow CI đọc thẳng `global.json`,
+còn `docker/Dockerfile` nhận `ARG DOTNET_VERSION` dùng chung cho cả hai dòng `FROM` nên chỉ
+phải đụng tới khi lên major mới.
 
 ---
 

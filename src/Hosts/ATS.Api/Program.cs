@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using ATS.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -9,23 +9,31 @@ var builder = WebApplication.CreateBuilder(args);
 // ---------------------------------------------------------------------------
 // Composition Root. Moi quyet dinh "dung adapter nao" nam O DAY, khong nam
 // trong Application hay Domain.
+//
+// Doc cau hinh ra bien local TRUOC khi dang ky: neu doc ben trong lambda thi
+// lambda giu tham chieu toi `builder` (keo theo ca ServiceCollection va
+// ConfigurationManager) suot doi tien trinh, va voi AddDbContext thi con duyet
+// lai chuoi configuration provider moi lan tao scope.
 // ---------------------------------------------------------------------------
+var connectionString = builder.Configuration.GetConnectionString("Default");
+var aiProvider = builder.Configuration["AiProvider"] ?? "Fake";
+var autoMigrate = builder.Configuration.GetValue("Database:AutoMigrate", defaultValue: false);
 
-// Moi module tu dang ky assembly Infrastructure cua minh. Nho vay AtsDbContext nap
-// duoc IEntityTypeConfiguration cua ca 3 module ma KHONG phai tham chieu project nao
-// trong so do — ranh gioi module van nguyen ven (docs/architecture.md muc 3.3).
-AtsDbContextConfigurator.Register(typeof(ATS.Recruitment.Infrastructure.InfrastructureAssemblyMarker).Assembly);
-AtsDbContextConfigurator.Register(typeof(ATS.AiScreening.Infrastructure.InfrastructureAssemblyMarker).Assembly);
-AtsDbContextConfigurator.Register(typeof(ATS.Identity.Infrastructure.InfrastructureAssemblyMarker).Assembly);
+var jwtSecret = builder.Configuration["Jwt:Secret"]
+                ?? "dev-only-secret-at-least-32-characters-long!!";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "ats-recruitment";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "ats-recruitment-users";
 
-builder.Services.AddDbContext<AtsDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+// Danh sach module truyen thang vao day. Them module thu 4 ma quen dong nay
+// thi bang cua no khong duoc tao — nhung it nhat chi co DUNG MOT cho phai sua.
+builder.Services.AddAtsPersistence(
+    connectionString,
+    typeof(ATS.Recruitment.Infrastructure.InfrastructureAssemblyMarker).Assembly,
+    typeof(ATS.AiScreening.Infrastructure.InfrastructureAssemblyMarker).Assembly,
+    typeof(ATS.Identity.Infrastructure.InfrastructureAssemblyMarker).Assembly);
 
 // Auth: cau hinh san nhung TUAN 2 CHUA endpoint nao yeu cau [Authorize].
 // Tuan 3 moi bat that khi Identity module xong.
-var jwtSecret = builder.Configuration["Jwt:Secret"]
-                ?? "dev-only-secret-at-least-32-characters-long!!";
-
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -37,15 +45,23 @@ builder.Services
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "ats-recruitment",
-            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "ats-recruitment-users",
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
         };
     });
 
 builder.Services.AddAuthorization();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Swagger chi phuc vu dev/demo, nen dang ky cung phai nam trong dung dieu kien
+// voi luc su dung — khong nap Swashbuckle va hang chuc ServiceDescriptor cua no
+// o moi lan khoi dong production cho mot duong ma khong bao gio chay.
+var enableSwagger = builder.Environment.IsDevelopment();
+if (enableSwagger)
+{
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+}
 
 var app = builder.Build();
 
@@ -54,15 +70,13 @@ var app = builder.Build();
 // `api` va `worker` PHAI dung cung AiProvider, neu khong ung vien se thay diem
 // gia trong khi HR thay diem that cho cung mot ho so.
 // ---------------------------------------------------------------------------
-var aiProvider = app.Configuration["AiProvider"] ?? "Fake";
 app.Logger.LogInformation("AiProvider cua API = {AiProvider}. Gia tri nay PHAI trung voi worker.", aiProvider);
 
 // ---------------------------------------------------------------------------
 // Ap migration luc khoi dong — CHI khi duoc bat tuong minh.
 //
 // Mac dinh TAT. Bat o docker-compose (Database__AutoMigrate=true) de
-// `docker compose up` cho ra mot he thong dung duoc ngay, khong phai chay
-// thu cong them mot lenh nua.
+// `docker compose up` cho ra mot he thong dung duoc ngay.
 //
 // Chi API lam viec nay, worker thi khong: hai process cung migrate mot luc
 // se tranh khoa tren bang __EFMigrationsHistory.
@@ -71,7 +85,7 @@ app.Logger.LogInformation("AiProvider cua API = {AiProvider}. Gia tri nay PHAI t
 // deploy rieng. Mot service tu doi luoc do database luc khoi dong la thu
 // khong ai muon gap luc 2 gio sang.
 // ---------------------------------------------------------------------------
-if (app.Configuration.GetValue("Database:AutoMigrate", defaultValue: false))
+if (autoMigrate)
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AtsDbContext>();
@@ -79,7 +93,7 @@ if (app.Configuration.GetValue("Database:AutoMigrate", defaultValue: false))
     app.Logger.LogInformation("Da ap migration. Schema: identity, recruitment, aiscreening.");
 }
 
-if (app.Environment.IsDevelopment())
+if (enableSwagger)
 {
     app.UseSwagger();
     app.UseSwaggerUI();

@@ -8,6 +8,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <!-- Chi dung luc thiet ke (dotnet ef). PrivateAssets=all nen khong vao output publish.
+         ATS.Api la startup project cua EF vi no la Composition Root THAT: model luc
+         sinh migration va model luc chay dam bao giong nhau, khong the lech. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
 

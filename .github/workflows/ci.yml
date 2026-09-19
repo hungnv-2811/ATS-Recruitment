@@ -22,30 +22,27 @@ jobs:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
 
-      - name: Cài .NET 10
+      # Phiên bản SDK đọc từ global.json, không ghi lại ở đây — một nguồn duy nhất.
+      - name: Cài .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
-      # Trước tuần 2 repo chưa có solution — bước này giúp CI không đỏ oan.
-      - name: Kiểm tra đã có solution chưa
-        id: check
-        run: |
-          if ls *.sln src/*.sln >/dev/null 2>&1; then
-            echo "found=true" >> $GITHUB_OUTPUT
-          else
-            echo "found=false" >> $GITHUB_OUTPUT
-            echo "::notice::Chưa có file .sln — bỏ qua build/test."
-          fi
+      # Không có cache thì mỗi lần push của cả 4 người đều tải lại EF Core, Npgsql,
+      # Swashbuckle, Test.Sdk... từ nuget.org. Khoá theo Directory.Packages.props vì
+      # đó là nơi duy nhất khai báo version (Central Package Management).
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
-        if: steps.check.outputs.found == 'true'
         run: dotnet restore
 
       - name: Build
-        if: steps.check.outputs.found == 'true'
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
-        if: steps.check.outputs.found == 'true'
         run: dotnet test --no-build --configuration Release --verbosity normal

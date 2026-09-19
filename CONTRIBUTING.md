@@ -177,19 +177,28 @@ dotnet format         # định dạng code
 
 ### Hai thứ đừng sửa lung tung
 
-- **`Directory.Build.props`** giữ `TargetFramework` cho cả 18 project. Không khai báo
-  `TargetFramework` riêng trong từng `.csproj`.
+- **`Directory.Build.props`** giữ `TargetFramework` cho cả 18 project và
+  **`Directory.Packages.props`** giữ version của mọi package. Không khai báo
+  `TargetFramework` hay `Version=` riêng trong từng `.csproj`.
+- **`global.json`** ghim feature band của SDK; hai workflow CI đọc thẳng file này.
+- Package riêng của project test khai báo ở **`src/Tests/Directory.Build.props`**,
+  không lặp lại trong từng `.csproj` test.
 - **`TreatWarningsAsErrors` đang bật.** Không tắt nó để "cho build qua" — sửa cảnh báo.
 
 ### Tạo migration
 
 ```bash
 dotnet tool restore
-dotnet dotnet-ef migrations add TenMigration --project src/Shared/ATS.Persistence
+dotnet dotnet-ef migrations add TenMigration \
+  --project src/Shared/ATS.Persistence \
+  --startup-project src/Hosts/ATS.Api
 ```
 
-Không cần `--startup-project`: `ATS.Persistence` đã có `AtsDbContextFactory` dùng lúc thiết kế,
-nên tạo migration không phải kéo `EntityFrameworkCore.Design` vào `ATS.Api`.
+`--startup-project` là **bắt buộc**, không phải tuỳ chọn. EF dựng model bằng chính
+Composition Root của `ATS.Api`, nên danh sách module lúc sinh migration và lúc chạy
+luôn giống nhau. Bỏ nó đi (hoặc dùng một design-time factory riêng) thì EF dựng model
+với **danh sách module rỗng** và sinh ra migration trống — build xanh, CI xanh, chỉ vỡ
+lúc chạy.
 
 ## 9. Bí mật
 

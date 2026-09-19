@@ -79,7 +79,7 @@ Chi tiết thiết kế và lý do trong [`docs/architecture.md`](docs/architect
 ATS-Recruitment/
 ├── src/
 │   ├── Shared/
-│   │   ├── ATS.SharedKernel/             # Entity, ValueObject, Result<T>, IEmailSender
+│   │   ├── ATS.SharedKernel/             # Entity<TId>, Result<T>, Error, IEmailSender
 │   │   └── ATS.Persistence/              # AtsDbContext + Migrations
 │   ├── Modules/                          # 3 module × 3 project = 9
 │   │   ├── Recruitment/                  # Domain, Application, Infrastructure
@@ -97,7 +97,9 @@ ATS-Recruitment/
 ├── docker/                               # Dockerfile + docker-compose.yml
 ├── docs/                                 # Tài liệu thiết kế
 ├── .github/                              # CI, CODEOWNERS, templates
-├── Directory.Build.props                 # TargetFramework dùng chung — đổi .NET sửa ở đây
+├── Directory.Build.props                 # TargetFramework dùng chung
+├── Directory.Packages.props              # version của mọi package (CPM)
+├── global.json                           # feature band của SDK; CI đọc thẳng file này
 └── ATS.sln
 ```
 

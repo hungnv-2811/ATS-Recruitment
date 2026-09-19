@@ -15,9 +15,9 @@ assembly. `System.Reflection` đủ sức diễn đạt cả năm và bớt đư
 
 | # | Quy tắc | Kiểm bằng cách |
 |---|---|---|
-| 1 | Domain không phụ thuộc Infrastructure | `Assembly.GetReferencedAssemblies()` của 4 assembly Domain |
+| 1 | Domain chỉ phụ thuộc BCL và SharedKernel | **Allowlist** theo public key token của runtime, duyệt **bắc cầu** |
 | 2 | Port AI chỉ nhận `AnonymizedCv`, không nhận `string` | Duyệt `GetParameters()` của từng method trên 2 port |
-| 3 | Controller không inject `DbContext` | Duyệt constructor + field của mọi type `*Controller` trong `ATS.Api` |
+| 3 | Ngoài Composition Root, không ai chạm `DbContext` | Duyệt ctor, field, property và tham số method của **mọi** type trong `ATS.Api` |
 | 4 | `Recruitment` không tham chiếu `AiScreening` | Tên assembly được tham chiếu |
 | 5 | `AnonymizedCv` không tạo được từ ngoài | Không có ctor `public`, và **không có `InternalsVisibleTo`** |
 
@@ -51,7 +51,22 @@ cố tình phá luật:
 
 Nên làm lại phép thử này mỗi khi thêm quy tắc mới.
 
-## Lưu ý về quy tắc 3
+## Vì sao quy tắc 1 dùng allowlist chứ không phải denylist
 
-Tuần 2 chưa có controller nào nên phép kiểm này **còn rỗng** — nó pass mà chưa kiểm gì cả.
-Bắt đầu có tác dụng từ tuần 3, khi `ATS.Api` có controller đầu tiên.
+Bản đầu liệt kê 7 chuỗi cấm (`Infrastructure`, `EntityFrameworkCore`, `Npgsql`, …). Cách đó
+hụt theo hai hướng: kéo `Dapper`, `MongoDB.Driver` hay `System.Data.SqlClient` vào Domain đều
+**xanh** vì không tên nào khớp; và `GetReferencedAssemblies()` chỉ thấy tham chiếu trực tiếp,
+nên đường `Domain → SharedKernel → EF Core` lọt qua — đúng cái kịch bản mà `architecture.md`
+mục 3.2 loại bỏ bằng lập luận.
+
+Bản hiện tại đảo lại: chỉ cho phép assembly của .NET runtime (nhận diện theo **public key
+token**, vì BCL có những assembly không mang tiền tố `System.` như `Microsoft.Win32.Primitives`,
+và ngược lại package bên thứ ba hoàn toàn có thể tự đặt tên `System.Something`), cộng
+`ATS.SharedKernel` và chính nó. Duyệt toàn bộ bao đóng tham chiếu. Package lạ thêm vào ngày mai
+tự động bị chặn mà không ai phải nhớ cập nhật danh sách.
+
+## Giới hạn đã biết của quy tắc 3
+
+API dùng Minimal API, nên nếu handler viết thẳng thành lambda trong `Program.cs` thì nó nằm
+trong closure của Composition Root và được miễn trừ. Chặn được cả trường hợp đó thì phải quét
+IL. Từ tuần 3, handler phải nằm trong class riêng để quy tắc này có hiệu lực thật.

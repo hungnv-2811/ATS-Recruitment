@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using ATS.AiScreening.Domain;
 using ATS.AiScreening.Domain.Ports;
@@ -8,8 +8,7 @@ using Xunit;
 namespace ATS.ArchitectureTests;
 
 /// <summary>
-/// Ba quy tac kien truc bat buoc (docs/architecture.md muc 3.1) + hai quy tac
-/// giu cho ADR-3 khong bi pha ngam.
+/// Nam quy tac kien truc bat buoc (docs/architecture.md muc 3.1).
 /// </summary>
 /// <remarks>
 /// Vi pham bat ky quy tac nao o day => CI do => khong merge duoc.
@@ -24,16 +23,22 @@ public sealed class ArchitectureRulesTests
     private static readonly Assembly IdentityDomain = typeof(ATS.Identity.Domain.Role).Assembly;
     private static readonly Assembly ApiAssembly = typeof(global::Program).Assembly;
 
-    /// <summary>Ten assembly/namespace bi cam xuat hien trong tang Domain.</summary>
-    private static readonly string[] InfrastructureMarkers =
+    /// <summary>Public key token cua cac assembly di kem .NET runtime.</summary>
+    /// <remarks>
+    /// Day la ALLOWLIST, khong phai denylist. Denylist phai doan truoc ten tung
+    /// package ha tang (EntityFrameworkCore, Npgsql, ...) nen Dapper, MongoDB.Driver
+    /// hay System.Data.SqlClient them vao ngay mai se lot qua ma khong ai hay.
+    ///
+    /// Nhan dien theo TOKEN chu khong theo ten, vi hai ly do: BCL co nhung assembly
+    /// khong mang tien to "System." (vi du Microsoft.Win32.Primitives), va nguoc lai
+    /// mot package ben thu ba hoan toan co the tu dat ten "System.Something".
+    /// </remarks>
+    private static readonly string[] RuntimePublicKeyTokens =
     [
-        "Infrastructure",
-        "Microsoft.EntityFrameworkCore",
-        "Npgsql",
-        "StackExchange.Redis",
-        "OpenAI",
-        "Swashbuckle",
-        "Microsoft.AspNetCore",
+        "b03f5f7f11d50a3a",   // phan lon System.* va Microsoft.Win32.*
+        "7cec85d7bea7798e",   // System.Private.CoreLib
+        "b77a5c561934e089",   // mscorlib, System
+        "cc7b13ffcd2ddd51",   // netstandard
     ];
 
     public static TheoryData<string, Assembly> DomainAssemblies => new()
@@ -45,23 +50,79 @@ public sealed class ArchitectureRulesTests
     };
 
     // -----------------------------------------------------------------------
-    // QUY TAC 1 — Domain khong duoc reference Infrastructure.
+    // QUY TAC 1 — Domain chi duoc phu thuoc BCL va SharedKernel.
     // Phu thuoc luon huong VAO TRONG.
     // -----------------------------------------------------------------------
     [Theory]
     [MemberData(nameof(DomainAssemblies))]
-    public void QuyTac1_Domain_khong_phu_thuoc_Infrastructure(string name, Assembly domain)
+    public void QuyTac1_Domain_chi_phu_thuoc_BCL_va_SharedKernel(string name, Assembly domain)
     {
-        var viPham = domain.GetReferencedAssemblies()
-            .Select(a => a.Name ?? string.Empty)
-            .Where(n => InfrastructureMarkers.Any(m => n.Contains(m, StringComparison.Ordinal)))
-            .Distinct()
+        var ownName = domain.GetName().Name ?? string.Empty;
+
+        var viPham = TransitiveReferences(domain)
+            .Where(referenced => !IsAllowedForDomain(referenced, ownName))
+            .Select(referenced => referenced.Name ?? "?")
+            .Order(StringComparer.Ordinal)
             .ToArray();
 
         Assert.True(
             viPham.Length == 0,
-            $"{name} dang phu thuoc vao ha tang: {string.Join(", ", viPham)}. " +
-            "Phu thuoc phai huong vao trong — xem docs/architecture.md muc 3.1.");
+            $"{name} phu thuoc (ke ca BAC CAU) vao: {string.Join(", ", viPham)}. " +
+            "Tang Domain chi duoc cham BCL va ATS.SharedKernel — xem docs/architecture.md muc 3.1.");
+    }
+
+    /// <summary>Duyet toan bo bao dong tham chieu, khong chi tham chieu truc tiep.</summary>
+    /// <remarks>
+    /// Chi doc GetReferencedAssemblies() cua rieng assembly goc la bo sot duong
+    /// Domain -> SharedKernel -> EF Core: dung cai kich ban ma muc 3.2 loai bo
+    /// bang lap luan, nhung khong co gi ep.
+    /// </remarks>
+    private static IEnumerable<AssemblyName> TransitiveReferences(Assembly root)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<Assembly>();
+        queue.Enqueue(root);
+
+        while (queue.Count > 0)
+        {
+            foreach (var reference in queue.Dequeue().GetReferencedAssemblies())
+            {
+                var name = reference.Name ?? string.Empty;
+                if (!seen.Add(name))
+                {
+                    continue;
+                }
+
+                yield return reference;
+
+                Assembly? loaded = null;
+                try
+                {
+                    loaded = Assembly.Load(reference);
+                }
+                catch (Exception e) when (e is FileNotFoundException or BadImageFormatException)
+                {
+                    // Khong nap duoc thi khong duyet tiep duoc — ten van da duoc kiem o tren.
+                }
+
+                if (loaded is not null)
+                {
+                    queue.Enqueue(loaded);
+                }
+            }
+        }
+    }
+
+    private static bool IsAllowedForDomain(AssemblyName reference, string ownAssemblyName)
+    {
+        var name = reference.Name ?? string.Empty;
+        if (name == "ATS.SharedKernel" || name == ownAssemblyName)
+        {
+            return true;
+        }
+
+        var token = Convert.ToHexString(reference.GetPublicKeyToken() ?? []).ToLowerInvariant();
+        return RuntimePublicKeyTokens.Contains(token, StringComparer.Ordinal);
     }
 
     // -----------------------------------------------------------------------
@@ -94,38 +155,67 @@ public sealed class ArchitectureRulesTests
     }
 
     // -----------------------------------------------------------------------
-    // QUY TAC 3 — Controller khong duoc dung thang DbContext.
+    // QUY TAC 3 — Ngoai Composition Root, khong type nao trong ATS.Api duoc cham DbContext.
     // -----------------------------------------------------------------------
-    // Tuan 2 chua co controller nao nen phep kiem nay con rong. No bat dau co
-    // tac dung tu tuan 3, khi ATS.Api co controller dau tien.
+    // Quet MOI thanh vien (ctor, field, property, tham so method) chu khong chi
+    // ctor, va quet moi type chu khong chi type ten *Controller — vi API nay dung
+    // Minimal API, co the se khong bao gio co class nao ten Controller.
+    //
+    // GIOI HAN da biet: neu handler duoc viet thang thanh lambda trong Program.cs
+    // thi no nam trong closure cua Composition Root va duoc mien tru o day. Chan
+    // duoc ca truong hop do thi phai quet IL (Mono.Cecil) — chua lam o tuan 2.
+    // Tu tuan 3, handler phai nam trong class rieng de quy tac nay co hieu luc.
     [Fact]
-    public void QuyTac3_Controller_khong_duoc_inject_DbContext()
+    public void QuyTac3_Ngoai_Composition_Root_khong_ai_duoc_cham_DbContext()
     {
-        var controllers = ApiAssembly.GetTypes()
-            .Where(t => t.Name.EndsWith("Controller", StringComparison.Ordinal))
-            .ToArray();
-
         var viPham = new List<string>();
 
-        foreach (var controller in controllers)
+        foreach (var type in ApiAssembly.GetTypes().Where(t => !IsCompositionRoot(t)))
         {
-            foreach (var ctor in controller.GetConstructors())
+            foreach (var ctor in type.GetConstructors())
             {
                 viPham.AddRange(ctor.GetParameters()
-                    .Where(p => typeof(DbContext).IsAssignableFrom(p.ParameterType))
-                    .Select(p => $"{controller.Name}(ctor: {p.ParameterType.Name})"));
+                    .Where(p => IsDbContext(p.ParameterType))
+                    .Select(p => $"{type.Name}(ctor: {p.ParameterType.Name})"));
             }
 
-            viPham.AddRange(controller
-                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-                .Where(f => typeof(DbContext).IsAssignableFrom(f.FieldType))
-                .Select(f => $"{controller.Name}.{f.Name}"));
+            viPham.AddRange(type
+                .GetFields(BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                .Where(f => IsDbContext(f.FieldType))
+                .Select(f => $"{type.Name}.{f.Name}"));
+
+            viPham.AddRange(type
+                .GetProperties(BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                .Where(p => IsDbContext(p.PropertyType))
+                .Select(p => $"{type.Name}.{p.Name}"));
+
+            viPham.AddRange(type
+                .GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .SelectMany(m => m.GetParameters().Select(p => (m, p)))
+                .Where(x => IsDbContext(x.p.ParameterType))
+                .Select(x => $"{type.Name}.{x.m.Name}({x.p.ParameterType.Name})"));
         }
 
         Assert.True(
             viPham.Count == 0,
-            $"Controller dang dung thang DbContext: {string.Join(", ", viPham)}. " +
+            $"Type trong ATS.Api dang cham thang DbContext: {string.Join(", ", viPham.Distinct())}. " +
             "Phai di qua Application layer.");
+    }
+
+    private static bool IsDbContext(Type type) => typeof(DbContext).IsAssignableFrom(type);
+
+    /// <summary>Program + cac type do compiler sinh ra cho top-level statement.</summary>
+    private static bool IsCompositionRoot(Type type)
+    {
+        for (var current = type; current is not null; current = current.DeclaringType)
+        {
+            if (current.Name == "Program")
+            {
+                return true;
+            }
+        }
+
+        return type.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false);
     }
 
     // -----------------------------------------------------------------------
@@ -140,7 +230,7 @@ public sealed class ArchitectureRulesTests
                 .Assembly.GetReferencedAssemblies())
             .Select(a => a.Name ?? string.Empty)
             .Where(n => n.Contains("AiScreening", StringComparison.Ordinal))
-            .Distinct()
+            .Distinct(StringComparer.Ordinal)
             .ToArray();
 
         Assert.True(
@@ -176,4 +266,3 @@ public sealed class ArchitectureRulesTests
             "di qua IPiiRedactor thay vi implement IAnonymizer o Infrastructure.");
     }
 }
-
