@@ -1,4 +1,4 @@
-# ATS-Recruitment — Nền tảng tuyển dụng 2 phía với AI trợ lý
+# Hệ thống quản lý tuyển dụng và sàng lọc ứng viên tích hợp AI
 
 Đồ án môn **Chuyên đề tổng hợp (607708)** — Nhóm 3.
 
