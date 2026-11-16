@@ -42,6 +42,8 @@ public sealed class InterviewServiceTests : IDisposable
         var mail = Assert.Single(_app.Email.Sent);
         Assert.Equal("c@example.com", mail.ToAddress);
         Assert.Contains("Backend .NET", mail.Subject, StringComparison.Ordinal);
+        Assert.StartsWith("Mời phỏng vấn", mail.Subject, StringComparison.Ordinal);
+        Assert.Contains("giờ Việt Nam", mail.HtmlBody, StringComparison.Ordinal);
         Assert.Equal(ApplicationStatus.Interview, (await _app.Db().Set<JobApplication>().SingleAsync()).Status);
     }
 
