@@ -7,6 +7,8 @@
   <ItemGroup>
     <!-- WebApplicationFactory<Program>: goi API that trong bo nho, khong can container. -->
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!-- Thay Postgres bang EF InMemory cho test endpoint AI. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
   </ItemGroup>
 
 </Project>
