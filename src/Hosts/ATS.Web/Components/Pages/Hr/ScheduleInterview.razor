@@ -1,0 +1,204 @@
+@page "/hr/applications/{ApplicationId:guid}/interview"
+@inherits SecurePage
+@inject ApplicationApi Applications
+@inject InterviewApi Interviews
+@inject AiApi Ai
+
+<PageTitle>Hẹn phỏng vấn · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <a href="hr/applications/@ApplicationId">← Hồ sơ</a>
+    <h1>Hẹn phỏng vấn @(_app is null ? "" : $"· {_app.CandidateName}")</h1>
+
+    @if (_saved is not null)
+    {
+        @if (_saved.EmailSent)
+        {
+            <div class="alert alert-success">Đã lưu lịch phỏng vấn và gửi lời mời qua email.</div>
+        }
+        else
+        {
+            @* Khong rollback buoi phong van khi SMTP loi (UC-04). *@
+            <div class="alert alert-warning">
+                Đã lưu lịch phỏng vấn nhưng chưa gửi được email.
+                <button type="button" class="link-button" @onclick="ResendAsync">Gửi lại lời mời</button>
+            </div>
+        }
+        <ErrorAlert Message="@_error" />
+        <a class="btn" href="hr/applications/@ApplicationId">Về hồ sơ</a>
+    }
+    else
+    {
+        <EditForm Model="_form" OnValidSubmit="SaveAsync" FormName="interview" class="form-grid">
+            <DataAnnotationsValidator />
+
+            <label>
+                Thời gian
+                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_form.ScheduledAt" />
+                <ValidationMessage For="() => _form.ScheduledAt" />
+            </label>
+
+            <fieldset>
+                <legend>Hình thức</legend>
+                <InputRadioGroup @bind-Value="_form.Mode">
+                    <label class="inline"><InputRadio Value="@("online")" /> Online</label>
+                    <label class="inline"><InputRadio Value="@("onsite")" /> Tại văn phòng</label>
+                </InputRadioGroup>
+            </fieldset>
+
+            <label>
+                Link / địa điểm
+                <InputText @bind-Value="_form.LocationOrLink" />
+                <ValidationMessage For="() => _form.LocationOrLink" />
+            </label>
+
+            <label>
+                Người phỏng vấn
+                <InputText @bind-Value="_form.InterviewerName" />
+                <ValidationMessage For="() => _form.InterviewerName" />
+            </label>
+
+            <section class="panel span-2">
+                <div class="page-head">
+                    <h2>Câu hỏi phỏng vấn</h2>
+                    <button type="button" class="btn" disabled="@_generating" @onclick="GenerateAsync">
+                        @if (_generating)
+                        {
+                            <Spinner />
+                        }
+                        ✨ Gợi ý câu hỏi từ CV + JD
+                    </button>
+                </div>
+                <p class="muted small">AI gợi ý, HR quyết định: mọi câu đều sửa và xoá được. Không bấm gợi ý thì tự nhập tay.</p>
+
+                @foreach (var group in _questions.Select((q, i) => (q, i)).GroupBy(x => x.q.Category))
+                {
+                    <h3>@Labels.QuestionCategory(group.Key)</h3>
+                    <ol class="question-list">
+                        @foreach (var (question, index) in group)
+                        {
+                            <li>
+                                <input type="text" @bind="question.Question" aria-label="Câu hỏi @(index + 1)" />
+                                <span class="muted small" title="Nguồn">@question.Source</span>
+                                <button type="button" class="link-button text-danger" aria-label="Xoá câu hỏi" @onclick="() => _questions.RemoveAt(index)">✕</button>
+                            </li>
+                        }
+                    </ol>
+                }
+
+                <div class="form-row">
+                    <select @bind="_newCategory" aria-label="Nhóm câu hỏi">
+                        <option value="technical">Chuyên môn</option>
+                        <option value="behavioral">Hành vi</option>
+                        <option value="situational">Tình huống</option>
+                    </select>
+                    <button type="button" class="btn" @onclick="AddQuestion">+ Thêm câu hỏi</button>
+                </div>
+            </section>
+
+            <ErrorAlert Message="@_error" />
+
+            <div class="span-2">
+                <button type="submit" class="btn btn-primary btn-lg" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <Spinner />
+                    }
+                    Lưu và gửi lời mời
+                </button>
+            </div>
+        </EditForm>
+    }
+</PageGuard>
+
+@code {
+    private readonly InterviewForm _form = new();
+    private readonly List<EditableQuestion> _questions = [];
+    private ApplicationDetailDto? _app;
+    private InterviewDto? _saved;
+    private string _newCategory = "technical";
+    private bool _generating;
+    private bool _saving;
+    private string? _error;
+
+    [Parameter]
+    public Guid ApplicationId { get; set; }
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr];
+
+    protected override async Task OnAuthorizedAsync()
+    {
+        var result = await Applications.GetAsync(ApplicationId);
+        _app = result.Value;
+        _error = result.Error;
+        _form.InterviewerName = CurrentUser.FullName;
+    }
+
+    private async Task GenerateAsync()
+    {
+        _generating = true;
+        _error = null;
+        var result = await Ai.GenerateQuestionsAsync(ApplicationId);
+        _generating = false;
+
+        if (result is { IsSuccess: true, Value: { } generated })
+        {
+            // Giu cau HR da tu nhap, thay phan AI/Template cu bang bo moi.
+            _questions.RemoveAll(q => q.Source != "Manual");
+            _questions.AddRange(generated.Select(EditableQuestion.From));
+            return;
+        }
+
+        _error = result.Error;
+    }
+
+    private void AddQuestion() => _questions.Add(new EditableQuestion { Category = _newCategory });
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+
+        var scheduledAt = new DateTimeOffset(DateTime.SpecifyKind(_form.ScheduledAt!.Value, DateTimeKind.Local));
+        var result = await Interviews.ScheduleAsync(ApplicationId, new ScheduleInterviewRequest(
+            scheduledAt.ToUniversalTime(), _form.Mode, _form.LocationOrLink.Trim(), _form.InterviewerName.Trim()));
+
+        if (result is not { IsSuccess: true, Value: { } interview })
+        {
+            _saving = false;
+            _error = result.Error;
+            return;
+        }
+
+        var questions = _questions.Where(q => !string.IsNullOrWhiteSpace(q.Question)).Select(q => q.ToDto()).ToList();
+        if (questions.Count > 0)
+        {
+            var saveQuestions = await Ai.SaveQuestionsAsync(interview.Id, questions);
+            if (!saveQuestions.IsSuccess)
+            {
+                _error = $"Đã lưu lịch phỏng vấn nhưng chưa lưu được câu hỏi: {saveQuestions.Error}";
+            }
+        }
+
+        _saving = false;
+        _saved = interview;
+    }
+
+    private async Task ResendAsync()
+    {
+        if (_saved is null)
+        {
+            return;
+        }
+
+        var result = await Interviews.ResendInviteAsync(_saved.Id);
+        if (result.IsSuccess)
+        {
+            _saved = _saved with { EmailSent = true };
+            _error = null;
+            return;
+        }
+
+        _error = result.StatusCode == 502 ? "Vẫn chưa gửi được email. Thử lại sau." : result.Error;
+    }
+}

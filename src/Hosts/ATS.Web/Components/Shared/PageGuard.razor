@@ -1,0 +1,26 @@
+@* Hien noi dung trang theo ket qua guard cua SecurePage. *@
+
+@switch (State)
+{
+    case GuardState.Checking:
+        <Spinner Text="Đang kiểm tra đăng nhập…" />
+        break;
+    case GuardState.Forbidden:
+        <section class="forbidden" role="alert">
+            <h1>403 · Không có quyền truy cập</h1>
+            <p>Trang này dành cho vai khác với tài khoản bạn đang dùng.</p>
+            <a href="">Về trang chủ</a>
+        </section>
+        break;
+    default:
+        @ChildContent
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public GuardState State { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

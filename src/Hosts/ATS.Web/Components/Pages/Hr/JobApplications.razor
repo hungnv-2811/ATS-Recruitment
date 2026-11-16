@@ -1,0 +1,139 @@
+@page "/hr/jobs/{JobId:guid}/applications"
+@inherits SecurePage
+@inject JobApi JobsApi
+@inject ApplicationApi Applications
+@inject AiApi Ai
+
+<PageTitle>Ứng viên · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <a href="hr/jobs">← Tin của tôi</a>
+    <div class="page-head">
+        <h1>@(_job?.Title ?? "Ứng viên") <span class="muted">· @(_items?.Count ?? 0) hồ sơ</span></h1>
+    </div>
+
+    <div class="toolbar">
+        <button type="button" class="btn btn-primary" disabled="@(_starting || _progress?.IsRunning == true || _items is null || _items.Count == 0)" @onclick="StartScreeningAsync">
+            @if (_starting)
+            {
+                <Spinner />
+            }
+            Chạy sàng lọc AI cho @UnscoredCount hồ sơ chưa chấm
+        </button>
+
+        <label class="inline">
+            Lọc
+            <select value="@_status" @onchange="OnStatusChanged">
+                <option value="">Tất cả</option>
+                @foreach (var status in Labels.ApplicationFlow.Append("Rejected"))
+                {
+                    <option value="@status">@Labels.ApplicationStatus(status)</option>
+                }
+            </select>
+        </label>
+    </div>
+
+    <ScreeningProgress @ref="_progress" JobId="JobId" OnProgress="LoadApplicationsAsync" />
+
+    <ErrorAlert Message="@_error" OnDismiss="() => _error = null" />
+
+    @if (_items is null)
+    {
+        <Spinner Text="Đang tải hồ sơ…" />
+    }
+    else if (_items.Count == 0)
+    {
+        <EmptyState Title="Chưa có hồ sơ nào" />
+    }
+    else
+    {
+        @if (MixedSources)
+        {
+            <div class="alert alert-warning">⚠ Bảng này trộn điểm từ nhiều nguồn khác nhau — xem nhãn từng dòng trước khi so sánh.</div>
+        }
+
+        @* Ho so chua cham / loi VAN nam trong bang, van mo duoc, van chuyen trang thai duoc (RB9).
+           API da sap xep diem giam dan, khong diem xuong cuoi. *@
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Điểm</th>
+                    <th>Ứng viên</th>
+                    <th>CV</th>
+                    <th>Trạng thái</th>
+                    <th>Nộp</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var app in _items)
+                {
+                    <tr>
+                        <td><ScoreBadge Score="app.AiScore" AdapterUsed="@app.AiAdapterUsed" ScreeningStatus="@app.ScreeningStatus" /></td>
+                        <td><a href="hr/applications/@app.Id">@app.CandidateName</a></td>
+                        <td>@app.CvName</td>
+                        <td><StatusPill Status="@app.Status" /></td>
+                        <td>@Labels.Date(app.AppliedAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</PageGuard>
+
+@code {
+    private JobDto? _job;
+    private List<RankedApplicationDto>? _items;
+    private ScreeningProgress? _progress;
+    private string _status = string.Empty;
+    private bool _starting;
+    private string? _error;
+
+    [Parameter]
+    public Guid JobId { get; set; }
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr];
+
+    private int UnscoredCount => _items?.Count(a => a.AiScore is null) ?? 0;
+
+    private bool MixedSources => _items is not null
+        && _items.Where(a => a.AiScore is not null).Select(a => a.AiAdapterUsed).Distinct().Count() > 1;
+
+    protected override async Task OnAuthorizedAsync()
+    {
+        var job = await JobsApi.GetAsync(JobId);
+        _job = job.Value;
+        _error = job.Error;
+        await LoadApplicationsAsync();
+    }
+
+    private async Task LoadApplicationsAsync()
+    {
+        var result = await Applications.ListForJobAsync(JobId, _status);
+        _items = result.Value ?? [];
+        _error ??= result.Error;
+    }
+
+    private async Task OnStatusChanged(ChangeEventArgs e)
+    {
+        _status = e.Value?.ToString() ?? string.Empty;
+        await LoadApplicationsAsync();
+    }
+
+    private async Task StartScreeningAsync()
+    {
+        _starting = true;
+        _error = null;
+        var result = await Ai.StartScreeningAsync(JobId);
+        _starting = false;
+
+        if (result is { IsSuccess: true, Value: { } screening })
+        {
+            _progress?.Track(screening);
+            return;
+        }
+
+        _error = result.StatusCode == 429
+            ? "Bạn đã dùng hết lượt sàng lọc lô hôm nay."
+            : result.Error;
+    }
+}

@@ -1,0 +1,21 @@
+@* Thanh tien trinh ●───●───○───○ cho ung vien (UV-5). Chi xem, khong bam duoc. *@
+
+<span class="status-track" aria-label="Trạng thái: @Labels.ApplicationStatus(Status)">
+    @for (var i = 0; i < Labels.ApplicationFlow.Length; i++)
+    {
+        var reached = Status != "Rejected" && i <= CurrentIndex;
+        if (i > 0)
+        {
+            <span class="track-line @(reached ? "on" : "")"></span>
+        }
+        <span class="track-dot @(reached ? "on" : "")" title="@Labels.ApplicationStatus(Labels.ApplicationFlow[i])"></span>
+    }
+    <StatusPill Status="@Status" />
+</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string? Status { get; set; }
+
+    private int CurrentIndex => Array.IndexOf(Labels.ApplicationFlow, Status);
+}

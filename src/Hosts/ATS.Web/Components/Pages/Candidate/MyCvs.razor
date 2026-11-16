@@ -1,0 +1,167 @@
+@page "/me/cvs"
+@inherits SecurePage
+@inject CvApi Cvs
+
+<PageTitle>CV của tôi · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <div class="page-head">
+        <h1>CV của tôi</h1>
+    </div>
+
+    <section class="panel">
+        <h2>Tải CV mới</h2>
+        <div class="form-row">
+            <label>
+                Tên gợi nhớ
+                <input type="text" @bind="_newName" placeholder="VD: CV Backend .NET 2026" maxlength="100" />
+            </label>
+            <label>
+                File (PDF hoặc DOCX, tối đa 5 MB)
+                <InputFile OnChange="OnFileSelected" accept=".pdf,.docx" />
+            </label>
+            <button type="button" class="btn btn-primary" disabled="@(_file is null || _uploading)" @onclick="UploadAsync">
+                @if (_uploading)
+                {
+                    <Spinner />
+                }
+                Tải lên
+            </button>
+        </div>
+    </section>
+
+    <ErrorAlert Message="@_error" OnDismiss="() => _error = null" />
+
+    @if (_cvs is null)
+    {
+        <Spinner Text="Đang tải CV…" />
+    }
+    else if (_cvs.Count == 0)
+    {
+        <EmptyState Title="Bạn chưa có CV nào">Tải CV đầu tiên lên — nó sẽ tự thành CV mặc định.</EmptyState>
+    }
+    else
+    {
+        <ul class="card-list">
+            @foreach (var cv in _cvs)
+            {
+                <li class="card">
+                    <div class="card-row">
+                        <span class="card-title">
+                            @if (cv.IsDefault)
+                            {
+                                <span class="star" title="CV mặc định">★</span>
+                            }
+                            @cv.Name
+                        </span>
+                        <span class="muted">@cv.FileType.ToUpperInvariant() · @FormatSize(cv.FileSizeKb) · @Labels.Date(cv.UploadedAt)</span>
+                    </div>
+                    @if (!cv.HasText)
+                    {
+                        @* Van giu, van nop duoc — chi bao AI khong cham duoc (UC-01). *@
+                        <div class="warning-line">⚠ Không đọc được nội dung — AI sẽ không chấm được CV này. Bạn vẫn có thể dùng nó để nộp.</div>
+                    }
+                    <div class="card-actions">
+                        @if (!cv.IsDefault)
+                        {
+                            <button type="button" class="link-button" @onclick="() => SetDefaultAsync(cv)">Đặt mặc định</button>
+                        }
+                        <button type="button" class="link-button text-danger" @onclick="() => DeleteAsync(cv)">Xoá</button>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</PageGuard>
+
+@code {
+    private List<CvDto>? _cvs;
+    private IBrowserFile? _file;
+    private string _newName = string.Empty;
+    private bool _uploading;
+    private string? _error;
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Candidate];
+
+    protected override Task OnAuthorizedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Cvs.ListAsync();
+        _cvs = result.Value ?? [];
+        _error = result.Error;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        var file = e.File;
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+
+        if (extension is not (".pdf" or ".docx"))
+        {
+            _error = "Chỉ nhận file PDF hoặc DOCX.";
+            _file = null;
+            return;
+        }
+
+        if (file.Size > CvApi.MaxFileBytes)
+        {
+            _error = "File lớn hơn 5 MB.";
+            _file = null;
+            return;
+        }
+
+        _file = file;
+        if (string.IsNullOrWhiteSpace(_newName))
+        {
+            _newName = Path.GetFileNameWithoutExtension(file.Name);
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        if (_file is null)
+        {
+            return;
+        }
+
+        _uploading = true;
+        var name = string.IsNullOrWhiteSpace(_newName) ? Path.GetFileNameWithoutExtension(_file.Name) : _newName.Trim();
+        var result = await Cvs.UploadAsync(_file, name);
+        _uploading = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        _file = null;
+        _newName = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task SetDefaultAsync(CvDto cv)
+    {
+        var result = await Cvs.SetDefaultAsync(cv.Id);
+        _error = result.Error;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(CvDto cv)
+    {
+        var result = await Cvs.DeleteAsync(cv.Id);
+        if (!result.IsSuccess)
+        {
+            _error = result.StatusCode == 409
+                ? $"CV \"{cv.Name}\" đã dùng để nộp đơn nên không xoá được."
+                : result.Error;
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private static string FormatSize(int kb) => kb >= 1024 ? $"{kb / 1024.0:0.0} MB" : $"{kb} KB";
+}

@@ -1,0 +1,109 @@
+@* Thanh tien do sang loc lo (HR-2). Polling 2s; roi trang roi quay lai thi doc lai tu
+   GET /api/jobs/{jobId}/screening-jobs/latest — khong mat tien do (wireframes HR-2). *@
+@implements IAsyncDisposable
+@inject AiApi Ai
+
+@if (_job is not null)
+{
+    <section class="screening-progress @(_job.IsFinished ? "finished" : "")" aria-live="polite">
+        <div class="progress-head">
+            <strong>@(_job.IsFinished ? "Đã sàng lọc xong" : "Đang sàng lọc")</strong>
+            <span class="muted">bắt đầu @Labels.DateTime(_job.StartedAt)</span>
+        </div>
+        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="@_job.TargetCount" aria-valuenow="@Processed">
+            <div class="progress-fill" style="width: @Width"></div>
+        </div>
+        <div class="progress-meta">
+            <span>@Processed/@_job.TargetCount</span>
+            @if (_job.FailedCount > 0)
+            {
+                <span class="text-danger">@_job.FailedCount lỗi</span>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
+
+    private readonly CancellationTokenSource _cts = new();
+    private ScreeningJobDto? _job;
+    private Task? _polling;
+    private int _lastProcessed = -1;
+
+    [Parameter, EditorRequired]
+    public Guid JobId { get; set; }
+
+    /// <summary>Goi moi khi so ho so da xu ly tang — trang cha tai lai bang xep hang.</summary>
+    [Parameter]
+    public EventCallback OnProgress { get; set; }
+
+    public bool IsRunning => _job is { IsFinished: false };
+
+    private int Processed => _job is null ? 0 : _job.DoneCount + _job.FailedCount;
+
+    private string Width => _job is null || _job.TargetCount == 0
+        ? "100%"
+        : $"{Math.Min(100, Processed * 100 / _job.TargetCount)}%";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var latest = await Ai.GetLatestScreeningJobAsync(JobId);
+        if (latest is { IsSuccess: true, Value: { } job })
+        {
+            Track(job);
+        }
+    }
+
+    /// <summary>Bat dau theo doi mot lo vua tao.</summary>
+    public void Track(ScreeningJobDto job)
+    {
+        _job = job;
+        _lastProcessed = Processed;
+        if (!job.IsFinished && _polling is null)
+        {
+            _polling = PollAsync(_cts.Token);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(PollInterval);
+        try
+        {
+            while (_job is { IsFinished: false } current && await timer.WaitForNextTickAsync(ct))
+            {
+                var result = await Ai.GetScreeningJobAsync(current.Id);
+                if (result is not { IsSuccess: true, Value: { } fresh })
+                {
+                    continue;
+                }
+
+                _job = fresh;
+                if (Processed != _lastProcessed)
+                {
+                    _lastProcessed = Processed;
+                    await InvokeAsync(() => OnProgress.InvokeAsync());
+                }
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Roi trang: dung polling. Worker van chay tiep phia sau.
+        }
+        finally
+        {
+            _polling = null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
+}

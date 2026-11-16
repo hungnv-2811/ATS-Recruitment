@@ -1,0 +1,299 @@
+@page "/jobs/{JobId:guid}"
+@implements IDisposable
+@inject AuthSession Session
+@inject JobApi JobsApi
+@inject CvApi Cvs
+@inject AiApi Ai
+@inject ApplicationApi Applications
+
+<PageTitle>@(_job?.Title ?? "Tin tuyển dụng") · ATS</PageTitle>
+
+@if (_job is null)
+{
+    @if (_loadError is not null)
+    {
+        <ErrorAlert Message="@_loadError" />
+        <a href="jobs">← Về danh sách việc làm</a>
+    }
+    else
+    {
+        <Spinner Text="Đang tải tin…" />
+    }
+}
+else
+{
+    <article class="job-detail">
+        <div class="page-head">
+            <h1>@_job.Title</h1>
+            <span class="muted">@_job.Location · @Labels.EmploymentType(_job.EmploymentType)</span>
+        </div>
+        @if (_job.Status != "Open")
+        {
+            <div class="alert alert-info">Tin này @Labels.JobStatus(_job.Status).ToLowerInvariant() — không nhận hồ sơ mới.</div>
+        }
+
+        <h2>Mô tả công việc</h2>
+        <p class="pre-wrap">@_job.Description</p>
+        <h2>Yêu cầu</h2>
+        <p class="pre-wrap">@_job.Requirements</p>
+    </article>
+
+    @if (Session.Current is null)
+    {
+        <section class="panel">
+            <p><a href="login?returnUrl=@Uri.EscapeDataString($"jobs/{JobId}")">Đăng nhập</a> bằng tài khoản ứng viên để xem độ phù hợp và ứng tuyển.</p>
+        </section>
+    }
+    else if (Session.Current.IsCandidate && _job.Status == "Open")
+    {
+        <section class="panel fit-panel">
+            <h2>Độ phù hợp của bạn</h2>
+
+            @if (_cvs is null)
+            {
+                <Spinner />
+            }
+            else if (_cvs.Count == 0)
+            {
+                <EmptyState Title="Bạn chưa có CV"><a href="me/cvs">Tải CV lên</a> để xem độ phù hợp và ứng tuyển.</EmptyState>
+            }
+            else
+            {
+                <div class="form-row">
+                    <label>
+                        Chọn CV
+                        <select value="@_selectedCvId" @onchange="OnCvChanged" disabled="@(_previewing || _applied is not null)">
+                            @foreach (var cv in _cvs)
+                            {
+                                <option value="@cv.Id">@cv.Name@(cv.IsDefault ? " ★" : "")</option>
+                            }
+                        </select>
+                    </label>
+
+                    @if (_previewing)
+                    {
+                        <button type="button" class="btn" @onclick="CancelPreview">
+                            <Spinner /> Đang chấm… Huỷ
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="PreviewAsync" disabled="@(SelectedCv is null || !SelectedCv.HasText || _quotaExhausted)">
+                            Xem độ phù hợp
+                        </button>
+                    }
+
+                    @if (_quota is not null)
+                    {
+                        <span class="muted">còn @_quota.PreviewRemainingToday/@_quota.PreviewLimitPerDay lượt hôm nay</span>
+                    }
+                </div>
+
+                @if (SelectedCv is { HasText: false })
+                {
+                    <div class="warning-line">Chưa chấm được CV này (không đọc được nội dung). Hãy chọn CV khác — bạn vẫn có thể nộp CV này.</div>
+                }
+
+                @if (_quotaExhausted)
+                {
+                    <div class="alert alert-info">Bạn đã dùng hết lượt xem hôm nay. Đặt lại lúc @ResetText. Bạn vẫn có thể ứng tuyển.</div>
+                }
+
+                <ErrorAlert Message="@_previewError" />
+
+                @if (_preview is not null)
+                {
+                    <div class="fit-result">
+                        <div class="fit-score">
+                            <span class="big-score">@_preview.Score <small>/ 100</small></span>
+                            <ScoreBadge Score="_preview.Score" AdapterUsed="@_preview.AdapterUsed" ShowHint="true" />
+                            @if (_preview.CacheHit)
+                            {
+                                <span class="muted small">đã xem trước đó — không trừ lượt</span>
+                            }
+                        </div>
+                        <p>@_preview.Summary</p>
+                        @if (_preview.Strengths is { Count: > 0 })
+                        {
+                            <p><span class="text-success">✓ Điểm mạnh</span> @string.Join(", ", _preview.Strengths)</p>
+                        }
+                        @if (_preview.Gaps is { Count: > 0 })
+                        {
+                            <p><span class="text-danger">✗ Còn thiếu</span> @string.Join(", ", _preview.Gaps)</p>
+                        }
+                    </div>
+                }
+
+                <div class="apply-row">
+                    @if (_applied is not null)
+                    {
+                        <div class="alert alert-success">
+                            Bạn đã nộp tin này bằng CV "@_applied.CvName" (@Labels.ApplicationStatus(_applied.Status)).
+                            <a href="me/applications">Xem hồ sơ đã nộp</a>
+                        </div>
+                    }
+                    else
+                    {
+                        @* Nut Ung tuyen KHONG phu thuoc AI: het luot, AI loi, CV khong doc duoc — van nop duoc. *@
+                        <button type="button" class="btn btn-primary btn-lg" disabled="@(SelectedCv is null || _applying)" @onclick="ApplyAsync">
+                            @if (_applying)
+                            {
+                                <Spinner />
+                            }
+                            Ứng tuyển với CV này
+                        </button>
+                    }
+                    <ErrorAlert Message="@_applyError" />
+                </div>
+            }
+        </section>
+    }
+}
+
+@code {
+    private JobDto? _job;
+    private string? _loadError;
+    private List<CvDto>? _cvs;
+    private Guid? _selectedCvId;
+    private QuotaDto? _quota;
+    private bool _quotaExhausted;
+    private string? _resetsAt;
+    private ScorePreviewResponse? _preview;
+    private string? _previewError;
+    private bool _previewing;
+    private CancellationTokenSource? _previewCts;
+    private ApplicationDto? _applied;
+    private bool _applying;
+    private string? _applyError;
+
+    [Parameter]
+    public Guid JobId { get; set; }
+
+    private CvDto? SelectedCv => _cvs?.FirstOrDefault(c => c.Id == _selectedCvId);
+
+    private string ResetText => _resetsAt ?? (_quota?.ResetsAt is { } at ? Labels.DateTime(at) : "00:00");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.EnsureLoadedAsync();
+
+        var job = await JobsApi.GetAsync(JobId);
+        _job = job.Value;
+        _loadError = job.IsSuccess ? null : job.StatusCode == 404 ? "Không tìm thấy tin tuyển dụng." : job.Error;
+
+        if (_job is not null && Session.Current is { IsCandidate: true })
+        {
+            await LoadCandidateDataAsync();
+        }
+    }
+
+    private async Task LoadCandidateDataAsync()
+    {
+        var cvsTask = Cvs.ListAsync();
+        var quotaTask = Ai.GetQuotaAsync();
+        var mineTask = Applications.ListMineAsync();
+        await Task.WhenAll(cvsTask, quotaTask, mineTask);
+
+        _cvs = (await cvsTask).Value ?? [];
+        _selectedCvId = (_cvs.FirstOrDefault(c => c.IsDefault) ?? _cvs.FirstOrDefault())?.Id;
+        _quota = (await quotaTask).Value;
+        _quotaExhausted = _quota is { PreviewRemainingToday: <= 0 };
+        _applied = (await mineTask).Value?.FirstOrDefault(a => a.JobId == JobId);
+        if (_applied is not null)
+        {
+            _selectedCvId = _applied.CvId;
+        }
+    }
+
+    private void OnCvChanged(ChangeEventArgs e)
+    {
+        _selectedCvId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _preview = null;
+        _previewError = null;
+    }
+
+    private async Task PreviewAsync()
+    {
+        if (SelectedCv is null)
+        {
+            return;
+        }
+
+        _previewing = true;
+        _previewError = null;
+        _preview = null;
+        _previewCts = new CancellationTokenSource();
+
+        try
+        {
+            var result = await Ai.PreviewAsync(SelectedCv.Id, JobId, _previewCts.Token);
+            if (result is { IsSuccess: true, Value: { } preview })
+            {
+                _preview = preview;
+                if (_quota is not null)
+                {
+                    _quota = _quota with { PreviewRemainingToday = preview.PreviewRemainingToday };
+                }
+            }
+            else if (result.StatusCode == 429)
+            {
+                _quotaExhausted = true;
+                _resetsAt = ReadResetsAt(result);
+                if (_quota is not null)
+                {
+                    _quota = _quota with { PreviewRemainingToday = 0 };
+                }
+            }
+            else
+            {
+                _previewError = result.Error;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _previewError = "Đã huỷ xem độ phù hợp.";
+        }
+        finally
+        {
+            _previewing = false;
+            _previewCts.Dispose();
+            _previewCts = null;
+        }
+    }
+
+    private void CancelPreview() => _previewCts?.Cancel();
+
+    private static string? ReadResetsAt(ApiResult result)
+        => result.Problem is { } problem
+           && problem.TryGetProperty("resetsAt", out var value)
+           && value.TryGetDateTimeOffset(out var at)
+            ? Labels.DateTime(at)
+            : null;
+
+    private async Task ApplyAsync()
+    {
+        if (SelectedCv is null)
+        {
+            return;
+        }
+
+        _applying = true;
+        _applyError = null;
+        var result = await Applications.ApplyAsync(JobId, SelectedCv.Id);
+        _applying = false;
+
+        if (result is { IsSuccess: true, Value: { } application })
+        {
+            _applied = application;
+            return;
+        }
+
+        _applyError = result.StatusCode == 409 ? "Bạn đã nộp hồ sơ vào tin này rồi." : result.Error;
+    }
+
+    public void Dispose()
+    {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+    }
+}

@@ -1,6 +1,55 @@
-﻿@* Tuan 2: chi co khung dieu huong. Tuan 3 tro di moi tach menu theo vai
-   (Ung vien / HR) va an cac muc khong thuoc vai dang dang nhap — RB8. *@
+﻿@* Menu tach theo vai (RB8). An muc khong thuoc vai chi la lop mot — moi trang con tu
+   chan bang SecurePage, va API chan bang policy. *@
+@implements IDisposable
+@inject AuthSession Session
+@inject NavigationManager Nav
 
-<nav class="nav">
-    <NavLink href="" Match="NavLinkMatch.All">Trang chu</NavLink>
+<nav class="nav" aria-label="Điều hướng chính">
+    <NavLink href="jobs">Việc làm</NavLink>
+
+    @if (Session.Current is { } user)
+    {
+        @if (user.IsCandidate)
+        {
+            <NavLink href="me/cvs">CV của tôi</NavLink>
+            <NavLink href="me/applications">Hồ sơ đã nộp</NavLink>
+        }
+        else if (user.IsHr)
+        {
+            <NavLink href="hr/jobs">Tin của tôi</NavLink>
+            <NavLink href="hr/interviews">Lịch phỏng vấn</NavLink>
+            <NavLink href="dashboard">Báo cáo</NavLink>
+        }
+        else if (user.IsAdmin)
+        {
+            <NavLink href="admin/users">Tài khoản</NavLink>
+            <NavLink href="dashboard">Báo cáo</NavLink>
+        }
+
+        <span class="nav-user" title="@user.Email">@user.FullName · @Labels.Role(user.Role)</span>
+        <button type="button" class="link-button" @onclick="SignOutAsync">Đăng xuất</button>
+    }
+    else if (Session.IsLoaded)
+    {
+        <NavLink href="login">Đăng nhập</NavLink>
+        <NavLink href="register">Đăng ký</NavLink>
+    }
 </nav>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Session.Changed += OnChanged;
+        await Session.EnsureLoadedAsync();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task SignOutAsync()
+    {
+        await Session.SignOutAsync();
+        Nav.NavigateTo("login");
+    }
+
+    public void Dispose() => Session.Changed -= OnChanged;
+}

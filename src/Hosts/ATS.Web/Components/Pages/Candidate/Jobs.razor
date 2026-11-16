@@ -1,0 +1,88 @@
+@page "/jobs"
+@inject JobApi JobsApi
+
+<PageTitle>Việc làm · ATS</PageTitle>
+
+<h1>Việc làm đang tuyển</h1>
+
+<form class="filter-bar" @onsubmit="SearchAsync" @onsubmit:preventDefault>
+    <input type="search" placeholder="Tìm theo vị trí, kỹ năng…" @bind="_search" aria-label="Từ khoá" />
+    <input type="text" placeholder="Địa điểm" @bind="_location" aria-label="Địa điểm" />
+    <select @bind="_employmentType" aria-label="Hình thức">
+        <option value="">Mọi hình thức</option>
+        @foreach (var type in Labels.EmploymentTypes)
+        {
+            <option value="@type">@Labels.EmploymentType(type)</option>
+        }
+    </select>
+    <button type="submit" class="btn">Tìm</button>
+</form>
+
+<ErrorAlert Message="@_error" />
+
+@if (_loading)
+{
+    <Spinner Text="Đang tải tin…" />
+}
+else if (_page is null || _page.Items.Count == 0)
+{
+    <EmptyState Title="Chưa có tin phù hợp">Thử bỏ bớt bộ lọc.</EmptyState>
+}
+else
+{
+    <ul class="card-list">
+        @foreach (var job in _page.Items)
+        {
+            <li class="card">
+                <div class="card-row">
+                    <a class="card-title" href="jobs/@job.Id">@job.Title</a>
+                    <span class="muted">@job.Location · @Labels.EmploymentType(job.EmploymentType)</span>
+                </div>
+                <div class="card-row">
+                    <span class="muted clamp">Yêu cầu: @job.Requirements</span>
+                    <span class="muted">đăng @Labels.Date(job.PostedAt)</span>
+                </div>
+            </li>
+        }
+    </ul>
+
+    <div class="pager">
+        <button class="btn" disabled="@(_pageNumber <= 1)" @onclick="() => GoToAsync(_pageNumber - 1)">‹ Trước</button>
+        <span>Trang @_pageNumber / @TotalPages · @_page.Total tin</span>
+        <button class="btn" disabled="@(_pageNumber >= TotalPages)" @onclick="() => GoToAsync(_pageNumber + 1)">Sau ›</button>
+    </div>
+}
+
+@code {
+    private const int PageSize = 10;
+
+    private PagedResult<JobDto>? _page;
+    private string? _search;
+    private string? _location;
+    private string? _employmentType;
+    private int _pageNumber = 1;
+    private bool _loading = true;
+    private string? _error;
+
+    private int TotalPages => _page is null ? 1 : Math.Max(1, (int)Math.Ceiling(_page.Total / (double)PageSize));
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task SearchAsync() => GoToAsync(1);
+
+    private Task GoToAsync(int page)
+    {
+        _pageNumber = page;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        var result = await JobsApi.SearchAsync(_search, _location, _employmentType, _pageNumber, PageSize);
+        _page = result.Value;
+        _error = result.Error;
+        _loading = false;
+    }
+}

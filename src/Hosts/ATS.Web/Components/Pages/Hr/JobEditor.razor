@@ -1,0 +1,129 @@
+@page "/hr/jobs/new"
+@page "/hr/jobs/{JobId:guid}/edit"
+@inherits SecurePage
+@inject JobApi JobsApi
+
+<PageTitle>@(IsNew ? "Đăng tin mới" : "Sửa tin") · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <a href="hr/jobs">← Tin của tôi</a>
+    <h1>@(IsNew ? "Đăng tin mới" : "Sửa tin")</h1>
+
+    @if (_form is null)
+    {
+        <ErrorAlert Message="@_error" />
+        @if (_error is null)
+        {
+            <Spinner Text="Đang tải…" />
+        }
+    }
+    else
+    {
+        <EditForm Model="_form" OnValidSubmit="SaveAsync" FormName="job" class="form-grid">
+            <DataAnnotationsValidator />
+
+            <label class="span-2">
+                Tiêu đề
+                <InputText @bind-Value="_form.Title" />
+                <ValidationMessage For="() => _form.Title" />
+            </label>
+
+            <label>
+                Địa điểm
+                <InputText @bind-Value="_form.Location" />
+                <ValidationMessage For="() => _form.Location" />
+            </label>
+
+            <label>
+                Hình thức
+                <InputSelect @bind-Value="_form.EmploymentType">
+                    @foreach (var type in Labels.EmploymentTypes)
+                    {
+                        <option value="@type">@Labels.EmploymentType(type)</option>
+                    }
+                </InputSelect>
+            </label>
+
+            <label class="span-2">
+                Mô tả công việc
+                <InputTextArea @bind-Value="_form.Description" rows="6" />
+                <ValidationMessage For="() => _form.Description" />
+            </label>
+
+            <label class="span-2">
+                Yêu cầu <span class="muted small">(mỗi kỹ năng một dòng hoặc cách nhau dấu phẩy — AI dùng phần này để chấm)</span>
+                <InputTextArea @bind-Value="_form.Requirements" rows="5" />
+                <ValidationMessage For="() => _form.Requirements" />
+            </label>
+
+            @if (IsNew)
+            {
+                <label class="checkbox span-2">
+                    <InputCheckbox @bind-Value="_form.Publish" /> Đăng ngay (bỏ chọn để lưu nháp)
+                </label>
+            }
+
+            <ErrorAlert Message="@_error" />
+
+            <div class="span-2">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <Spinner />
+                    }
+                    @(IsNew ? "Đăng tin" : "Lưu thay đổi")
+                </button>
+            </div>
+        </EditForm>
+    }
+</PageGuard>
+
+@code {
+    private JobForm? _form;
+    private bool _saving;
+    private string? _error;
+
+    [Parameter]
+    public Guid? JobId { get; set; }
+
+    private bool IsNew => JobId is null;
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr];
+
+    protected override async Task OnAuthorizedAsync()
+    {
+        if (IsNew)
+        {
+            _form = new JobForm();
+            return;
+        }
+
+        var result = await JobsApi.GetAsync(JobId!.Value);
+        _form = result.Value is { } job ? JobForm.From(job) : null;
+        _error = result.Error;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        var form = _form!;
+
+        ApiResult result = IsNew
+            ? await JobsApi.CreateAsync(new CreateJobRequest(
+                form.Title.Trim(), form.Description.Trim(), form.Requirements.Trim(),
+                form.Location.Trim(), form.EmploymentType, form.Publish))
+            : await JobsApi.UpdateAsync(JobId!.Value, new UpdateJobRequest(
+                form.Title.Trim(), form.Description.Trim(), form.Requirements.Trim(),
+                form.Location.Trim(), form.EmploymentType));
+
+        _saving = false;
+        if (!result.IsSuccess)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        Nav.NavigateTo("hr/jobs");
+    }
+}

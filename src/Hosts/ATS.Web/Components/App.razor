@@ -6,12 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="app.css" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="RenderMode" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="RenderMode" />
+    <script src="app.js"></script>
     <script src="_framework/blazor.web.js"></script>
 </body>
 
 </html>
+
+@code {
+    // Tat prerender: phien dang nhap nam trong localStorage (can JS interop), nen render
+    // tren server truoc khi co circuit se luon thay "chua dang nhap" va nhay ve /login.
+    private static readonly IComponentRenderMode RenderMode = new InteractiveServerRenderMode(prerender: false);
+}

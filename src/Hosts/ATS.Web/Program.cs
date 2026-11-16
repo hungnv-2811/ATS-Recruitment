@@ -1,4 +1,5 @@
 ﻿using ATS.Web.Components;
+using ATS.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +15,25 @@ builder.Services.AddRazorComponents()
 // chieu toi `builder` suot doi tien trinh thay vi chi giu mot Uri.
 var apiBaseUri = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:8080");
 
-builder.Services.AddHttpClient("ats-api", client => client.BaseAddress = apiBaseUri);
+// Timeout 40s > 30s timeout cung cua score-preview (ADR-2): de API tu roi xuong Keyword
+// va tra diem, thay vi Web cat ngang truoc.
+builder.Services.AddHttpClient("ats-api", client =>
+{
+    client.BaseAddress = apiBaseUri;
+    client.Timeout = TimeSpan.FromSeconds(40);
+});
+
+// Moi circuit (mot tab) co phien dang nhap rieng.
+builder.Services.AddScoped<AuthSession>();
+builder.Services.AddScoped<ApiClient>();
+builder.Services.AddScoped<AuthApi>();
+builder.Services.AddScoped<CvApi>();
+builder.Services.AddScoped<JobApi>();
+builder.Services.AddScoped<ApplicationApi>();
+builder.Services.AddScoped<InterviewApi>();
+builder.Services.AddScoped<AiApi>();
+builder.Services.AddScoped<ReportApi>();
+builder.Services.AddScoped<AdminApi>();
 
 var app = builder.Build();
 
