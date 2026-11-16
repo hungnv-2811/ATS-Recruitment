@@ -16,6 +16,28 @@
 
 ---
 
+## Pha tích hợp (dd/mm – dd/mm) — Migration, seed demo, kiểm trên Postgres thật
+
+**Chức năng chung:** sau khi merge đủ 4 nhánh vào `nvhung`, `docker compose up` cho ra hệ thống có dữ liệu demo.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| Migration duy nhất `AddModuleTables` (14 bảng) + FK xuyên schema DEFERRABLE + FK kép CV thuộc ứng viên | #— | #— | Xong |
+| `DatabaseSeeder` SQL thô, idempotent (Id cố định), CV PDF thật trong FileStorage | #— | #— | Xong |
+| Kiểm trên Postgres 16 thật: migrate, seed 2 lần, dashboard HR/Admin, tải CV, quota `ON CONFLICT`, lô sàng lọc qua worker + Redis | #— | #— | Xong |
+| `database-design.md` mục 2.1, 3, 5, 6 theo thực tế | #— | #— | Xong |
+
+### Vướng mắc
+
+- `dotnet ef` trên Windows bị Smart App Control chặn → sinh migration trong WSL.
+- `SqlQuery<int>` của EF bọc truy vấn và đòi cột tên `"Value"` (có ngoặc kép) — viết thiếu là lỗi lúc chạy.
+
+**Thời gian bỏ ra:** ~—h
+
+---
+
 ## Tuần 3 (dd/mm – dd/mm) — Hạ tầng dùng chung, Worker, báo cáo
 
 **Chức năng chung của tuần:** 4 người làm song song trên contract đã chốt (contracts.md mục 8).

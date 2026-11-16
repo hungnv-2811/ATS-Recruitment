@@ -227,7 +227,13 @@ SQL báo cáo (`ATS.Persistence/Reporting`, TV1) viết tay theo đúng các quy
 - **Enum lưu dạng chuỗi** (`HasConversion<string>()`), giá trị đúng tên enum: `jobs.status` ∈
   `Draft|Open|Closed`, `applications.status` ∈ `Applied|Screening|Interview|Hired|Rejected`,
   `ai_scores.screening_status` ∈ `Pending|Processing|Scored|Failed`, `adapter_used` ∈
-  `OpenAI|Embedding|Keyword|Fake`, `users.role` ∈ `Candidate|HR|Admin`.
+  `OpenAI|Embedding|Keyword|Fake`, `users.role` ∈ `Candidate|Hr|Admin` (tên enum `Role.Hr`; chuỗi
+  `"HR"` chỉ xuất hiện ở JWT/API), `jobs.employment_type` ∈ `FullTime|PartTime|Internship|Contract`,
+  `interviews.status` ∈ `Scheduled|Done|Cancelled`, `evaluations.recommendation` ∈ `Hire|Reject|Consider`,
+  `screening_jobs.status` ∈ `Queued|Running|Done|Cancelled`.
+- Cột phát sinh khi code (so với ERD mục 1): `users.full_name`, `jobs.created_at`,
+  `interviews.email_sent`, `interviews.created_at`, `ai_scores.failure_reason`, `ai_scores.updated_at`,
+  `interview_questions.created_at`. `strengths`/`gaps` là mảng JSON lưu trong cột `text`.
 - Mọi thời gian là `DateTimeOffset` UTC → `timestamp with time zone`. Khoá chính `uuid`, sinh ở
   code (`Guid.CreateVersion7()`).
 - `jobs.hr_owner_id` = `identity.users.id` của HR (không phải `hr_profiles.id`); `ai_scores.score`
@@ -259,8 +265,9 @@ cache. Trùng lặp này **là cố ý**: nếu sau đó nhóm đổi prompt, h�
 
 ## 3. Ràng buộc dữ liệu quan trọng
 
-1. **`applications.cv_id` phải thuộc về đúng `applications.candidate_id`.** Enforce bằng trigger
-   hoặc kiểm tra ở Application layer trước khi INSERT.
+1. **`applications.cv_id` phải thuộc về đúng `applications.candidate_id`.** Kiểm ở Application
+   layer (TV2) **và** ở DB bằng FK kép `(cv_id, candidate_id) → cvs(id, candidate_id)`
+   (`fk_applications_cv_owner`, mục 5) — không cần trigger.
 2. **`(application_id)` là UNIQUE trong `ai_scores`.** Một đơn có tối đa một điểm AI (chấm lại thì
    update, không insert dòng mới).
 3. **`cache_key` là UNIQUE trong `ai_score_cache`**, giá trị
@@ -318,9 +325,12 @@ nhận phải giữ đồng bộ cột đó.
 
 ## 5. Migration
 
-**Hiện trạng (tuần 3):** chỉ có `20260919131605_InitialCreate` (tuần 2) — **chỉ tạo 3 schema**,
-chưa có bảng nào. EF không tự sinh `EnsureSchema` khi model chưa có entity, nên ba dòng đó viết
-tay trong `Up()`.
+**Hiện trạng:** hai migration.
+
+| Migration | Nội dung |
+|---|---|
+| `20260919131605_InitialCreate` (tuần 2) | Chỉ tạo 3 schema (viết tay — EF không sinh `EnsureSchema` khi model rỗng) |
+| `20261116055018_AddModuleTables` (pha tích hợp) | 14 bảng: `identity` 2, `recruitment` 7, `aiscreening` 5 + mọi index/FK trong module + phần viết tay bên dưới |
 
 **Quy trình đã chốt:** tuần 3 ba nhánh (Identity/Recruitment của TV2, AiScreening của TV4, hạ
 tầng của TV1) phát triển song song và **không nhánh nào tự tạo migration** — ba nhánh cùng sửa
@@ -336,18 +346,35 @@ rồi chạy thử trên Postgres thật (compose) trước khi đẩy lên.
   `__EFMigrationsHistory`).
 - Không split migration theo module ở phase 1 — split khi nào thực sự tách microservices.
 
-Ba thứ EF Core không sinh được từ model, phải viết tay bằng `migrationBuilder.Sql(...)` trong
-migration tích hợp đó:
+Hai index đặc biệt **EF đã tự sinh** từ model (không cần viết tay):
+`ix_cvs_default` (unique, `WHERE is_default` — `HasFilter`) và `ix_ai_scores_application_id`
+(unique, `INCLUDE (score, screening_status)` — `IncludeProperties`).
+
+Phần **viết tay** trong `AddModuleTables` (`migrationBuilder.Sql`, có `Down` tương ứng) — những thứ
+model không thể biết vì module không thấy entity của nhau:
 
 ```sql
-CREATE UNIQUE INDEX ix_cvs_default ON recruitment.cvs (candidate_id) WHERE is_default;
+-- FK xuyên schema/module, DEFERRABLE INITIALLY DEFERRED: EF không biết thứ tự INSERT giữa hai
+-- bảng này (đăng ký = users + candidates trong CÙNG một SaveChanges) nên kiểm lúc COMMIT.
+recruitment.candidates.user_id       → identity.users(id)
+recruitment.hr_profiles.user_id      → identity.users(id)
+recruitment.jobs.hr_owner_id         → identity.users(id)
+aiscreening.ai_scores.application_id → recruitment.applications(id)
+aiscreening.interview_questions.interview_id → recruitment.interviews(id)
+aiscreening.screening_jobs.job_id    → recruitment.jobs(id)
+aiscreening.ai_usage_quotas.user_id  → identity.users(id)
 
-ALTER TABLE recruitment.applications ADD CONSTRAINT ck_applications_cv_owner
-  CHECK (public.fn_cv_belongs_to_candidate(cv_id, candidate_id));  -- ràng buộc 1, mục 3
-
-CREATE INDEX ix_ai_scores_app ON aiscreening.ai_scores (application_id)
-  INCLUDE (score, screening_status);
+-- Ràng buộc 1 (mục 3): CV của đơn phải thuộc đúng ứng viên nộp đơn.
+CREATE UNIQUE INDEX ux_cvs_id_candidate_id ON recruitment.cvs (id, candidate_id);
+ALTER TABLE recruitment.applications ADD CONSTRAINT fk_applications_cv_owner
+  FOREIGN KEY (cv_id, candidate_id) REFERENCES recruitment.cvs (id, candidate_id);
 ```
+
+Không có `ON DELETE CASCADE` xuyên module: `users` và `applications` không bao giờ bị xoá vật lý.
+
+**Sinh lại migration** (máy Windows bật Smart App Control chặn `dotnet ef` nạp DLL → chạy trong WSL):
+`dotnet tool restore` rồi
+`dotnet dotnet-ef migrations add <Tên> --project src/Shared/ATS.Persistence --startup-project src/Hosts/ATS.Api`.
 
 ## 6. Seed data cho dev
 
@@ -357,18 +384,32 @@ tại; và hash mật khẩu (BCrypt) phải sinh giống hệt cách Identity k
 
 - Chạy trong API, **sau** `MigrateAsync`, khi `Database:AutoMigrate=true` **và**
   `Database:SeedDemoData=true` (compose: `DB_SEED_DEMO_DATA`, mặc định `true` cho dev).
-- **Idempotent**: kiểm tra tồn tại trước khi thêm — khởi động lại container không nhân đôi dữ liệu.
-- Tài khoản Admin lấy từ `Seed:AdminEmail` / `Seed:AdminPassword` (mặc định dev
-  `admin@ats.local` / `Admin@123` — deploy thật **phải** đổi trong `docker/.env`).
+- Viết bằng **SQL thô** (`ATS.Persistence` không thấy entity của module), MỘT transaction.
+- **Idempotent**: mọi dòng có Id CỐ ĐỊNH (`5eed00TT-0000-0000-0000-NNNNNNNNNNNN`, `DemoData.cs`) và
+  `ON CONFLICT DO NOTHING`; nếu HR demo đầu tiên (hoặc bất kỳ email demo nào) đã tồn tại thì bỏ
+  qua cả khối. Đã chạy 2 lần trên Postgres 16 thật: số dòng không đổi.
+- Admin **không** do seeder này tạo: `AdminSeeder` của Identity (TV2) tạo từ `Seed:AdminEmail` /
+  `Seed:AdminPassword` (mặc định dev `admin@ats.local` / `Admin@123` — deploy thật **phải** đổi
+  trong `docker/.env`).
+- File CV demo là **PDF thật** (sinh trong code, `DemoPdf.cs`) ghi vào `FileStorage:RootPath`
+  (`seed-cv-NN.pdf`) nếu chưa có — `GET /api/applications/{id}/cv-file` tải được, kể cả khi volume
+  `cv-files` bị xoá mà database còn (file được ghi lại ở lần khởi động sau).
 
-Dữ liệu demo dự kiến (hoàn thiện ở pha tích hợp, sau khi có entity của mọi module):
-- 1 admin, 3 HR test
-- 5 ứng viên test, mỗi ứng viên 2 CV giả (đã có `extracted_text`)
-- 10 tin tuyển dụng
-- 30 application phân bổ đủ các trạng thái
-- 30 dòng `ai_score_cache` tương ứng → demo chạy được **không cần** `OPENAI_API_KEY`
+Tài khoản demo (mật khẩu chung **`Demo@123`**, chỉ dùng cho dev/demo):
 
-**Trạng thái tuần 3:** `DatabaseSeeder.SeedAsync` mới là khung rỗng (chưa có bảng để seed).
+| Vai | Email | Ghi chú |
+|---|---|---|
+| Admin | `admin@ats.local` / `Admin@123` | do `AdminSeeder` tạo |
+| HR | `hr1@ats.local` | 4 tin (1 Draft), có lô sàng lọc đã xong, có lịch phỏng vấn |
+| HR | `hr2@ats.local` | 3 tin (1 Closed) |
+| HR | `hr3@ats.local` | 3 tin |
+| Ứng viên | `ungvien1@ats.local` … `ungvien8@ats.local` | ứng viên 1–4 có 2 CV, 5–8 có 1 CV |
+
+Dữ liệu: 3 HR, 8 ứng viên, 12 CV (có `extracted_text`), 10 tin (8 Open, 1 Draft, 1 Closed),
+30 đơn (8 Applied, 7 Screening, 6 Interview, 3 Hired, 6 Rejected), 30 `ai_scores` (Scored với
+đủ 4 adapter `Fake`/`Keyword`/`OpenAI`/`Embedding`, 3 Failed, 3 Pending), 6 dòng `ai_score_cache`
+(tổng `hit_count` = 19), 1 lô sàng lọc Done, 4 buổi phỏng vấn (2 sắp tới, 2 đã xong) + 2 đánh
+giá + 3 câu hỏi. Demo chạy **không cần** `OPENAI_API_KEY` (`AiProvider=Fake`).
 
 ## 7. Backup & retention
 
