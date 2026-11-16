@@ -8,46 +8,240 @@
 | **Tầng phụ trách** | AI & Chất lượng |
 | **Project sở hữu** | `ATS.AiScreening.*`, `src/Tests/` |
 
-> Mẫu ghi: [_TEMPLATE.md](_TEMPLATE.md). Tuần mới nhất đặt **trên cùng**.
-
-> **Lưu ý khi nộp:** các ô `#—` (Issue/PR) và `~—h` (thời gian) là phần **mỗi người tự điền**
-> theo hoạt động thật của mình trên GitHub. Phần "Việc đã làm" ghi đúng trạng thái repo.
+> **Cách đọc:** mỗi tuần một mục, tuần mới nhất ở trên. Việc được xếp vào tuần theo
+> [`weekly-plan.md`](../weekly-plan.md). Các ô `dd/mm`, `#—` (Issue/PR) và `~—h` (thời gian)
+> mỗi người **tự điền theo hoạt động thật** của mình trên GitHub.
 
 ---
 
-## Tuần 5–9 (dd/mm – dd/mm) — Module AiScreening end-to-end (nhánh `feature/aiscreening-pipeline`)
+## Tuần 10 (dd/mm – dd/mm) — Tích hợp, kiểm thử trên hệ thống thật, hoàn thiện
 
-**Chức năng chung của tuần:** pipeline AI chạy được từ API/Worker tới DB với FakeAdapter, adapter
-thật (OpenAI, Embedding) đứng sau fallback, hạn mức + cache hoạt động, toàn bộ endpoint AI theo
-`contracts.md` mục 8.3.
+**Chức năng chung của tuần:** Merge đủ các nhánh, migration + seed, chạy `docker compose` end-to-end, sửa lỗi phát hiện.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Domain: `AiScore`, `AiScoreCacheEntry`, `ScreeningJob`, `AiUsageQuota`, `InterviewQuestionEntry` + port `IAiScoreRepository`, `IScreeningJobRepository`, `IInterviewQuestionRepository` | #— | #— | Xong |
-| `SimpleAnonymizer`: mở rộng regex PII (SĐT nhiều dạng, link MXH, ngày sinh, địa chỉ, trường, họ tên) + trích `Skills`/`ExperienceKeywords` (`SkillCatalog`) | #— | #— | Xong |
-| Application: `PreviewScoreHandler` (cache trước → trừ lượt), `StartScreeningHandler`, `ProcessScreeningHandler`, sinh/lưu câu hỏi, truy vấn điểm/lô/hạn mức, `JobRequirementParser` | #— | #— | Xong |
-| Infrastructure: Fake/Keyword/OpenAI/Embedding adapter, `AiScoringPipeline` (ngân sách 30s), câu hỏi OpenAI + Template, Redis/InMemory queue, EF repo + quota `ON CONFLICT`, adapter cross-module | #— | #— | Xong |
-| 9 endpoint AI (429 kèm `previewRemainingToday` + `resetsAt`) | #— | #— | Xong |
-| Test: 123 unit (`ATS.AiScreening.Tests`), +5 quy tắc kiến trúc (14 test), 19 integration test endpoint AI | #— | #— | Xong |
-| Cập nhật `ai-integration.md` mục 3 + mục 9 (chỗ lệch thiết kế) | #— | #— | Xong |
+| 9 test end-to-end qua HTTP: vòng đời nộp đơn → chấm → sàng lọc lô → phỏng vấn → Hired, phân quyền chéo, RB9 | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
 
 ### Vướng mắc
 
-- `dotnet test` bị Smart App Control chặn trên Windows → chạy CI trong WSL (`ci-wsl.sh`, bản sao `tv4`).
-- Test integration dùng chung DB InMemory trong một fixture: cache theo NỘI DUNG làm hai test có
-  cùng CV+JD trúng cache của nhau → dữ liệu test phải khác nội dung (đúng thiết kế, không phải bug).
-- Đường Postgres (`ON CONFLICT`, `ExecuteUpdate` tiến độ lô, đếm `hit_count`) chưa chạy trên DB thật —
-  cần test ở pha tích hợp khi có migration.
+- Hàng đợi in-memory dùng chung trong một test class → rút sạch trước khi đếm.
 
 ### Kế hoạch tuần sau
 
-- Pha tích hợp: test end-to-end nộp đơn → Worker chấm (sau khi merge nhánh TV2 + Worker của TV1).
-- Đo tỉ lệ sót PII trên 20 CV thật; chạy workflow `ai-smoke` với khoá OpenAI trước buổi bảo vệ.
+- Bảo vệ đồ án.
 
 **Thời gian bỏ ra:** ~—h
 
+---
+
+## Tuần 9 (dd/mm – dd/mm) — Tuần đệm — Embedding, báo cáo, phân quyền UI
+
+**Chức năng chung của tuần:** Trả nợ tuần 7–8, thêm Embedding + dashboard, chặn route theo vai.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| `EmbeddingScoringAdapter` chèn giữa pipeline | #— | #— | Xong |
+| Thêm 5 quy tắc kiến trúc (14 test); 19 integration test endpoint AI; cập nhật `ai-integration.md` | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
+
+### Vướng mắc
+
+- —
+
+### Kế hoạch tuần sau
+
+- 9 test end-to-end qua HTTP: vòng đời nộp đơn → chấm → sàng lọc lô → phỏng vấn → Hired, phân quyền chéo, RB9
+
+**Thời gian bỏ ra:** ~—h
+
+---
+
+## Tuần 8 (dd/mm – dd/mm) — Phỏng vấn + gợi ý câu hỏi + email
+
+**Chức năng chung của tuần:** HR hẹn phỏng vấn, AI gợi ý câu hỏi, MailHog nhận thư; SMTP lỗi vẫn lưu buổi phỏng vấn.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| `OpenAiInterviewQuestionAdapter` + `TemplateInterviewQuestionAdapter` (fallback 10 câu) | #— | #— | Xong |
+| Sinh/lưu/đọc câu hỏi phỏng vấn + endpoint | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
+
+### Vướng mắc
+
+- —
+
+### Kế hoạch tuần sau
+
+- `EmbeddingScoringAdapter` chèn giữa pipeline
+
+**Thời gian bỏ ra:** ~—h
+
+---
+
+## Tuần 7 (dd/mm – dd/mm) — Adapter AI thật — chấm điểm nhiều tầng, cache, hạn mức
+
+**Chức năng chung của tuần:** Pipeline thật có fallback; preview lần 2 trúng cache, không trừ lượt.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| `OpenAiScoringAdapter` (JSON strict, retry), `KeywordScoringAdapter`, `AiScoringPipeline` (ngân sách 30s) | #— | #— | Xong |
+| Cache theo nội dung + hạn mức `ON CONFLICT`; `PreviewScoreHandler` (tra cache trước, trúng cache không trừ lượt) | #— | #— | Xong |
+| Endpoint `score-preview` (429 kèm `previewRemainingToday`, `resetsAt`), `ai-quota`; snapshot test 5 cặp CV–JD | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
+
+### Vướng mắc
+
+- Đường Postgres (`ON CONFLICT`, tiến độ lô) chỉ kiểm được khi có migration (tuần 10).
+
+### Kế hoạch tuần sau
+
+- `OpenAiInterviewQuestionAdapter` + `TemplateInterviewQuestionAdapter` (fallback 10 câu)
+
+**Thời gian bỏ ra:** ~—h
+
+---
+
+## Tuần 6 (dd/mm – dd/mm) — AiScreening với FakeAdapter (end-to-end)
+
+**Chức năng chung của tuần:** Nộp đơn → hàng đợi → Worker → điểm lưu DB, dùng Fake để không tốn tiền.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| Entity `AiScore`, `ScreeningJob`, `AiUsageQuota`, `AiScoreCacheEntry` + repository | #— | #— | Xong |
+| `FakeAiScoringAdapter`, hàng đợi Redis (+ InMemory khi chưa cấu hình), `StartScreeningHandler`, `ProcessScreeningHandler` | #— | #— | Xong |
+| Adapter liên module: `ScreeningTriggerAdapter`, `ApplicationScoreReader`; endpoint sàng lọc lô | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
+
+### Vướng mắc
+
+- —
+
+### Kế hoạch tuần sau
+
+- `OpenAiScoringAdapter` (JSON strict, retry), `KeywordScoringAdapter`, `AiScoringPipeline` (ngân sách 30s)
+
+**Thời gian bỏ ra:** ~—h
+
+---
+
+## Tuần 5 (dd/mm – dd/mm) — Ứng tuyển + ẩn danh CV
+
+**Chức năng chung của tuần:** Ứng viên nộp CV vào tin và thấy trong lịch sử; CV được ẩn danh trước khi tới AI.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| `SimpleAnonymizer`: mở rộng regex PII (SĐT nhiều dạng, link MXH, ngày sinh, địa chỉ, trường, họ tên) | #— | #— | Xong |
+| Trích `Skills`/`ExperienceKeywords` (`SkillCatalog`) + unit test PII | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
+
+### Vướng mắc
+
+- —
+
+### Kế hoạch tuần sau
+
+- Entity `AiScore`, `ScreeningJob`, `AiUsageQuota`, `AiScoreCacheEntry` + repository
+
+**Thời gian bỏ ra:** ~—h
+
+---
+
+## Tuần 4 (dd/mm – dd/mm) — Recruitment — tin tuyển dụng, nhiều CV
+
+**Chức năng chung của tuần:** Ứng viên upload nhiều CV, HR đăng tin, cả hai xem được.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| Review PR Recruitment của TV2 | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
+
+### Vướng mắc
+
+- —
+
+### Kế hoạch tuần sau
+
+- `SimpleAnonymizer`: mở rộng regex PII (SĐT nhiều dạng, link MXH, ngày sinh, địa chỉ, trường, họ tên)
+
+**Thời gian bỏ ra:** ~—h
+
+---
+
+## Tuần 3 (dd/mm – dd/mm) — Identity — đăng ký/đăng nhập 2 vai, quên mật khẩu
+
+**Chức năng chung của tuần:** Đăng ký ứng viên → đăng nhập → nhận JWT → gọi `/api/me`; quên mật khẩu qua MailHog.
+
+### Việc đã làm
+
+| Việc | Issue | PR | Trạng thái |
+|---|---|---|---|
+| Review PR Identity của TV2 (theo kế hoạch tuần 3–4: hỗ trợ review, viết test cho module khác) | #— | #— | Xong |
+
+### PR đã review của người khác
+
+| PR | Của ai | Nhận xét chính |
+|---|---|---|
+| #— | | |
+
+### Vướng mắc
+
+- —
+
+### Kế hoạch tuần sau
+
+- Review PR Recruitment của TV2
+
+**Thời gian bỏ ra:** ~—h
 
 ---
 
