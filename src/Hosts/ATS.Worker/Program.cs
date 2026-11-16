@@ -1,4 +1,5 @@
 ﻿using ATS.AiScreening.Infrastructure;
+using ATS.Identity.Infrastructure;
 using ATS.Persistence;
 using ATS.Recruitment.Infrastructure;
 using ATS.Recruitment.Infrastructure.Shared;
@@ -12,8 +13,10 @@ var builder = Host.CreateApplicationBuilder(args);
 // AddRecruitmentModule → AddAiScreeningModule (thu tu co y nghia: AiScreening ghi de NoOp),
 // cung IConfiguration (AiProvider, OpenAI, Ai:*).
 //
-// Khong goi AddIdentityModule: worker khong phat JWT, khong gui mail dat lai mat khau.
-// Assembly Identity van nam trong danh sach module de model DbContext trung voi API.
+// CO goi AddIdentityModule: sau khi merge, AddRecruitmentModule dang ky IdentityUserDirectory
+// (can IUserRepository cua Identity). Thieu dong nay thi worker chet ngay luc khoi dong
+// (ValidateOnBuild) — da gap khi chay thu tren Postgres that o pha tich hop.
+// Worker khong migrate (Database:AutoMigrate khong dat cho worker) nen AdminSeeder khong chay.
 // ---------------------------------------------------------------------------
 var connectionString = builder.Configuration.GetConnectionString("Default");
 var aiProvider = builder.Configuration["AiProvider"] ?? "Fake";
@@ -26,6 +29,7 @@ builder.Services.AddAtsPersistence(
     typeof(ATS.Identity.Infrastructure.InfrastructureAssemblyMarker).Assembly);
 
 builder.Services.AddSharedInfrastructure(builder.Configuration);   // TV1: email, file, trich CV
+builder.Services.AddIdentityModule(builder.Configuration);         // TV2: IUserRepository (Recruitment can)
 builder.Services.AddRecruitmentModule(builder.Configuration);      // TV2: IRecruitmentQueries
 builder.Services.AddAiScreeningModule(builder.Configuration);      // TV4: queue, handler, adapter AI
 
