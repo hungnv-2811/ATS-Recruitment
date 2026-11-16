@@ -86,8 +86,8 @@ public interface IInterviewRepository
 
     Task<IReadOnlyList<Interview>> ListByApplicationAsync(Guid applicationId, CancellationToken ct = default);
 
-    /// <summary>Buoi Scheduled tu <paramref name="from"/> tro di, cua cac tin do HR so huu.</summary>
-    Task<IReadOnlyList<Interview>> ListUpcomingForHrAsync(Guid hrOwnerId, DateTimeOffset from, CancellationToken ct = default);
+    /// <summary>Buoi Scheduled tu <paramref name="since"/> tro di, cua cac tin do HR so huu.</summary>
+    Task<IReadOnlyList<Interview>> ListUpcomingForHrAsync(Guid hrOwnerId, DateTimeOffset since, CancellationToken ct = default);
 
     Task AddAsync(Interview interview, CancellationToken ct = default);
 }
