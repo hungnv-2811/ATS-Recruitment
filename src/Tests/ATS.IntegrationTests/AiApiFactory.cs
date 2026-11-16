@@ -79,6 +79,11 @@ public sealed class AiApiFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AtsDbContext>(o => o.UseInMemoryDatabase(_databaseName));
 
+            // Token o day tu ky cho user GIA (khong co trong identity.users): bo qua buoc kiem
+            // security stamp — buoc do co test rieng voi user that (SessionRevocationTests).
+            services.RemoveAll<ATS.Identity.Application.ITokenSessionValidator>();
+            services.AddSingleton<ATS.Identity.Application.ITokenSessionValidator>(new AllowAllSessions());
+
             services.RemoveAll<IRecruitmentQueries>();
             services.AddSingleton<IRecruitmentQueries>(Recruitment);
 
@@ -174,4 +179,11 @@ public sealed class StubRecruitmentQueries : IRecruitmentQueries
             return Task.FromResult<IReadOnlyList<Guid>>(_applications.Where(a => a.Value.JobId == jobId).Select(a => a.Key).ToArray());
         }
     }
+}
+
+/// <summary>Chap nhan moi token da qua kiem chu ky — chi dung cho test endpoint AI voi user gia.</summary>
+internal sealed class AllowAllSessions : ATS.Identity.Application.ITokenSessionValidator
+{
+    public Task<bool> IsValidAsync(Guid userId, string? securityStamp, CancellationToken ct = default)
+        => Task.FromResult(true);
 }

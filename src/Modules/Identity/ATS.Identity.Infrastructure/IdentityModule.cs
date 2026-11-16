@@ -37,6 +37,7 @@ public static class IdentityModule
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<ITokenSessionValidator, TokenSessionValidator>();
 
         // Admin dau tien: chi khi DB da duoc migrate luc khoi dong VA co cau hinh day du.
         var adminEmail = configuration["Seed:AdminEmail"];

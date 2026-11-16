@@ -77,6 +77,30 @@ builder.Services
             NameClaimType = "sub",
             RoleClaimType = "role",
         };
+
+        // Chu ky + han dung moi chung minh token DO HE THONG PHAT, chua chung minh tai khoan
+        // con duoc phep. So security stamp voi database moi request: khoa tai khoan, doi vai,
+        // doi mat khau → token cu bi tu choi NGAY (401), khong phai cho het han.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal;
+                var validator = context.HttpContext.RequestServices
+                    .GetRequiredService<ATS.Identity.Application.ITokenSessionValidator>();
+
+                var valid = Guid.TryParse(principal?.FindFirst("sub")?.Value, out var userId)
+                    && await validator.IsValidAsync(
+                        userId,
+                        principal?.FindFirst(ATS.Identity.Application.TokenClaims.SecurityStamp)?.Value,
+                        context.HttpContext.RequestAborted);
+
+                if (!valid)
+                {
+                    context.Fail("Phien dang nhap da bi thu hoi.");
+                }
+            },
+        };
     });
 
 // Phan quyen theo vai ep o API (RB8) — UI an menu chi la lop thu hai.

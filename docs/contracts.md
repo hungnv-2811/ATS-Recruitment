@@ -419,7 +419,9 @@ POST   /api/interviews/{id}/evaluations   (HR: nhập đánh giá)
   `forbidden` | `unauthorized` | `quota_exceeded` | `external_service`). Ánh xạ status một chỗ:
   `ATS.Api/Http/ResultHttpExtensions.cs`.
 - JWT: claim `sub` (user id), `email`, `name` (họ tên), `role` ∈ `Candidate` | `HR` | `Admin`.
-  Hạn token: `Jwt:ExpiresMinutes` (mặc định 120). Policy: `CandidateOnly`, `HrOnly`, `AdminOnly`
+  Hạn token: `Jwt:ExpiresMinutes` (mặc định 120). Thêm claim `sstamp` (security stamp): API so
+  với `identity.users.security_stamp` ở **mọi request**; khoá tài khoản, đổi vai, đổi mật khẩu
+  đều đổi stamp → token cũ nhận `401` ngay, không chờ hết hạn (`ITokenSessionValidator`). Policy: `CandidateOnly`, `HrOnly`, `AdminOnly`
   (`ATS.Api/Auth/AuthConventions.cs`).
 - Bảng/cột **snake_case** tự động (`UseSnakeCaseNamingConvention`); mỗi
   `IEntityTypeConfiguration` chỉ đặt **tên bảng + schema** tường minh, ví dụ

@@ -5,6 +5,7 @@ using ATS.Identity.Domain.Ports;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using ATS.Identity.Application;
 
 namespace ATS.Identity.Infrastructure.Security;
 
@@ -34,7 +35,7 @@ public sealed class BCryptPasswordHasher : IPasswordHasher
 
 /// <summary>
 /// Phat JWT HS256 voi dung bo claim chot o contracts.md 8.1: <c>sub</c>, <c>email</c>,
-/// <c>name</c>, <c>role</c> ("Candidate" | "HR" | "Admin").
+/// <c>name</c>, <c>role</c> ("Candidate" | "HR" | "Admin"), them <c>sstamp</c> de thu hoi token.
 /// </summary>
 /// <remarks>
 /// Doc <c>Jwt:Secret/Issuer/Audience/ExpiresMinutes</c> tu IConfiguration — Program.cs ghi nguoc
@@ -90,6 +91,7 @@ public sealed class JwtTokenIssuer : ITokenIssuer
                 [JwtRegisteredClaimNames.Name] = user.FullName,
                 ["role"] = RoleNames.ToName(user.Role),
                 [JwtRegisteredClaimNames.Jti] = Guid.NewGuid().ToString("N"),
+                [TokenClaims.SecurityStamp] = user.SecurityStamp,
             },
         };
 
