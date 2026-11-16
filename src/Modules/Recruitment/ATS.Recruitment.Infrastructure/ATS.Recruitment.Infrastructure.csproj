@@ -3,6 +3,10 @@
   <ItemGroup>
     <ProjectReference Include="../ATS.Recruitment.Application/ATS.Recruitment.Application.csproj" />
     <ProjectReference Include="../../../Shared/ATS.Persistence/ATS.Persistence.csproj" />
+    <!-- Cross-module DUNG CHIEU: adapter o day hien thuc port cua Identity.Application
+         (IUserProfileProvisioner) va doc email qua IUserRepository. Chi tang Infrastructure biet
+         ca hai module; Domain/Application cua Recruitment va Identity khong tham chieu nhau. -->
+    <ProjectReference Include="../../Identity/ATS.Identity.Application/ATS.Identity.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

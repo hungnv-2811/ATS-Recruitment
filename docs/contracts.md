@@ -539,3 +539,51 @@ không trích được chữ.
 `DashboardDto(TotalJobs, OpenJobs, TotalApplications, ApplicationsByStatus, HiredRate, TopJobs, Ai)` —
 `ApplicationsByStatus`: map trạng thái → số đơn; `TopJobs`: `[{JobId, Title, ApplicationCount}]` (5 tin);
 `Ai`: `{ScoredCount, FailedCount, CacheEntries, CacheHits, CacheHitRate, ByAdapter}`.
+
+### 8.4. Ghi chú hiện thực Identity + Recruitment (TV2, tuần 3–8)
+
+Route và **tên trường DTO ở 8.3 giữ nguyên**. Những chỗ dưới đây là phần 8.3 chưa nói rõ, hoặc
+lệch so với phác thảo ở mục 2.1/2.3 — đã ghi lại để người review và TV3/TV4 không phải đoán.
+
+**Port (lệch so với mục 2.1 / 2.3)**
+
+| Port | Thay đổi | Lý do |
+|---|---|---|
+| `ITokenIssuer.IssueAccessToken(User)` | trả `AccessToken(Value, ExpiresAt)` thay vì `string` | `AuthResponse` cần `ExpiresAt` |
+| `IUserRepository` | thêm `ListAsync` | màn quản trị user |
+| `IPasswordResetTokenRepository` | bỏ `MarkUsedAsync` (thay bằng hành vi `token.MarkUsed(now)`); `InvalidateAllForUserAsync(userId, now, ct)` | entity tự giữ luật "dùng một lần" |
+| Repository Recruitment | bỏ `UpdateAsync`/`UpdateStatusAsync`; thêm `GetByIdsAsync`, `ExistsAsync`, `AnyUsingCvAsync`, `CountByJobsAsync`, `SearchOpenAsync`, `ListByOwnerAsync`, `ListUpcomingForHrAsync`; thêm `IHrProfileRepository`, `IEvaluationRepository` | entity EF được theo dõi → sửa bằng hành vi của entity + `IUnitOfWork.SaveChangesAsync`; tra theo lô tránh N+1. Bản chốt: `Recruitment.Domain/Ports/RepositoryPorts.cs` |
+
+**Port nối Identity ↔ Recruitment (mới)** — Domain/Application của hai module KHÔNG tham chiếu
+nhau; chỉ `Recruitment.Infrastructure` tham chiếu `Identity.Application`.
+
+| Interface | Đặt ở | Hiện thực | Dùng khi |
+|---|---|---|---|
+| `IUserProfileProvisioner` | `Identity.Application/Ports` | `Recruitment.Infrastructure/CrossModule` | Đăng ký Candidate/HR → tạo `candidates`/`hr_profiles` trong **cùng** `SaveChanges` với user |
+| `IUserDirectory` | `Recruitment.Application/Ports` | `Recruitment.Infrastructure/CrossModule` | Lấy email đăng nhập (mail mời phỏng vấn, `CandidateEmail`) |
+
+**Service**: `IAuthService` (register/login/forgot/reset/me) và `IUserAdminService` (list, PATCH
+user) tách riêng; `IJobService`, `ICvService`, `IApplicationService`, `IInterviewService` ở
+`Recruitment.Application/Contracts/RecruitmentServices.cs`.
+
+**Hành vi chưa ghi ở 8.3**
+
+- `JobDto.PostedAt` có thể `null` (tin `Draft`). `CreateJobRequest.Requirements`/`Location` không bắt buộc.
+- `GET /api/jobs/{id}`: tin `Draft`/`Closed` mà người gọi không phải chủ tin → `404` (không lộ tin nháp).
+- Không phải chủ tin → `403`; CV/đơn của người khác khi ứng viên thao tác → `404` (không xác nhận tồn tại).
+- Nộp đơn: CV không thuộc ứng viên → `404`; tin không tồn tại `404`; tin `Draft`/`Closed` → `400`.
+- Đăng nhập tài khoản bị khoá → `401` (thông báo riêng "Tài khoản đã bị khoá" — chỉ hiện sau khi mật khẩu đúng).
+- `ApplicationDetailDto.HrNote` = `null` khi người xem là ứng viên.
+- `ScheduleInterviewRequest.ScheduledAt` phải ở tương lai; `Mode` không phân biệt hoa thường, trả về chữ thường.
+- `POST /api/interviews/{id}/evaluations`: buổi đã có đánh giá → `409`; buổi không còn `Scheduled` → `400`.
+- Admin không tự khoá / tự hạ vai chính mình (`400`). Admin đổi vai Candidate ↔ HR → tạo hồ sơ tương ứng nếu chưa có.
+- Admin đầu tiên: `Seed:AdminEmail` + `Seed:AdminPassword` (+ tuỳ chọn `Seed:AdminFullName`), chỉ khi `Database:AutoMigrate=true`.
+
+**Dữ liệu (cho TV1 cập nhật `database-design.md` và migration)**
+
+- `identity.users.role` lưu **tên enum** (`Candidate` | `Hr` | `Admin`) theo quy ước "enum lưu chuỗi đúng tên
+  enum"; chuỗi `"HR"` chỉ xuất hiện ở API/JWT. SQL báo cáo lọc HR phải dùng `'Hr'`.
+- Cột thêm so với ERD: `jobs.created_at`, `interviews.email_sent`, `interviews.created_at`, `users.full_name`.
+- Index: `ix_cvs_default` (partial unique `WHERE is_default`), unique `(job_id, candidate_id)` trên
+  `applications`, unique `evaluations.interview_id`, unique `candidates.user_id`, `hr_profiles.user_id`.
+- Không có FK chéo schema `recruitment.* → identity.users` (giữ ranh giới module).
