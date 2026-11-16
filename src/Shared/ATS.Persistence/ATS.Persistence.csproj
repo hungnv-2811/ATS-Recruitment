@@ -9,6 +9,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="EFCore.NamingConventions" />
+    <!-- DatabaseSeeder doc FileStorage:RootPath de ghi file CV demo dung cho LocalFileStorage doc. -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
   </ItemGroup>
 
 </Project>
