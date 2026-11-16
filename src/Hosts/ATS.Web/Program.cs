@@ -1,4 +1,4 @@
-﻿using ATS.Web.Components;
+using ATS.Web.Components;
 using ATS.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,8 +42,11 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
 
-app.UseStaticFiles();
 app.UseAntiforgery();
+
+// .NET 10: blazor.web.js va file trong wwwroot duoc phuc vu qua manifest static assets.
+// UseStaticFiles cu khong co _framework/blazor.web.js trong ban publish -> trang trong.
+app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

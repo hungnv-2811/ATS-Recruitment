@@ -1,18 +1,19 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <ImportMap />
     <HeadOutlet @rendermode="RenderMode" />
 </head>
 
 <body>
     <Routes @rendermode="RenderMode" />
-    <script src="app.js"></script>
-    <script src="_framework/blazor.web.js"></script>
+    <script src="@Assets["app.js"]"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
