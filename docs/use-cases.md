@@ -124,10 +124,14 @@ chặn thao tác vì thiếu điểm AI.
   2. Chọn file PDF hoặc DOCX (≤ 5 MB)
   3. Nhập tên CV (ví dụ "CV Backend Java 2026")
   4. Hệ thống lưu file, tạo bản ghi `Cv`
-  5. Hệ thống trích xuất text nền (không chặn UI)
+  5. Hệ thống trích xuất text **đồng bộ ngay lúc upload** (file ≤ 5 MB nên nhanh) và lưu
+     `cvs.extracted_text` — chốt ở `contracts.md` 8.2 (lệch so với bản đầu "trích nền": đồng bộ
+     thì CV vừa upload đã dùng được để preview/nộp, không cần thêm hàng đợi)
+  6. CV đầu tiên của ứng viên tự thành CV mặc định
 - **Luồng phụ**:
-  - File > 5 MB → báo lỗi
-  - File không đọc được text → cho phép nhưng đánh dấu `text_extractable = false`, AI sẽ không chấm được
+  - File > 5 MB hoặc không phải PDF/DOCX → báo lỗi `400`
+  - File không đọc được text → cho phép nhưng `HasText = false` (cột `extracted_text` rỗng), AI sẽ không chấm được
+  - Xoá CV đã dùng để nộp đơn → `409`; xoá CV mặc định → CV mới nhất còn lại thành mặc định
 - **Kết quả**: CV xuất hiện trong danh sách CV của ứng viên
 
 ### UC-02: Ứng viên ứng tuyển vào tin
@@ -142,8 +146,11 @@ chặn thao tác vì thiếu điểm AI.
   5. Hệ thống enqueue sàng lọc AI cho `Application` này
   6. Trả về màn hình chờ; điểm phù hợp hiện lên khi AI xong (polling 3s)
 - **Luồng phụ**:
-  - Đã ứng tuyển tin này rồi với CV khác → hỏi có muốn thay CV không
+  - Đã ứng tuyển tin này rồi → `409` (mỗi ứng viên một đơn/tin). *Lệch so với bản đầu "hỏi có
+    muốn thay CV không": phase 1 chưa làm đổi CV của đơn đã nộp — đơn có thể đã được AI chấm
+    theo CV cũ.*
   - Chưa có CV → chuyển sang màn upload CV trước
+  - Yêu cầu chấm AI lỗi (Redis/AiScreening sập) → đơn **vẫn được lưu**, hiện `ScreeningStatus = Pending` (RB9)
 - **Kết quả**: có bản ghi Application mới, ứng viên nhìn thấy điểm và tóm tắt AI
 
 ### UC-03: HR chạy sàng lọc AI hàng loạt
@@ -165,7 +172,8 @@ chặn thao tác vì thiếu điểm AI.
 ### UC-04: HR xếp phỏng vấn + AI gợi ý câu hỏi
 
 - **Tác nhân**: HR
-- **Tiền điều kiện**: Application ở trạng thái "Sàng lọc"
+- **Tiền điều kiện**: Application chưa kết thúc (`Applied`, `Screening` hoặc `Interview`); HR sở
+  hữu tin. Hẹn phỏng vấn tự đưa đơn `Applied`/`Screening` sang `Interview` (`contracts.md` 8.3)
 - **Luồng chính**:
   1. HR bấm "Hẹn phỏng vấn" trên một ứng viên
   2. Nhập thời gian, hình thức (online/onsite), người phỏng vấn

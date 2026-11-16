@@ -1,7 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
+  <!--
+    Worker la Composition Root thu hai: phai thay CA 3 assembly Infrastructure de
+    AtsDbContext co cung model voi API (ModuleAssemblies giong het), va de resolve
+    IRecruitmentQueries (Recruitment.Infrastructure, TV2) ma pipeline AI can.
+  -->
   <ItemGroup>
     <ProjectReference Include="../../Modules/AiScreening/ATS.AiScreening.Infrastructure/ATS.AiScreening.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/Recruitment/ATS.Recruitment.Infrastructure/ATS.Recruitment.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/Identity/ATS.Identity.Infrastructure/ATS.Identity.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

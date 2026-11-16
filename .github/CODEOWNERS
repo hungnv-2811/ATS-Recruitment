@@ -30,6 +30,10 @@
 
 # ── Hosts ───────────────────────────────────────────────────────────────
 /src/Hosts/ATS.Api/                     @tv2-tuananh
+/src/Hosts/ATS.Api/Endpoints/ReportEndpoints.cs      @tv1-hoat
+/src/Hosts/ATS.Api/Endpoints/AiScreeningEndpoints.cs @tv4-tien
+# Ha tang dung chung (email, file, trich CV) nam trong Recruitment.Infrastructure nhung do TV1 giu.
+/src/Modules/Recruitment/ATS.Recruitment.Infrastructure/Shared/  @tv1-hoat @tv2-tuananh
 /src/Hosts/ATS.Worker/                  @tv1-hoat @tv4-tien
 /src/Hosts/ATS.Web/                     @tv3-hung
 

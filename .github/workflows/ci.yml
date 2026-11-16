@@ -18,6 +18,23 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    # Postgres THAT cho bo test Category=Postgres (migration, seeder, SQL bao cao, quota
+    # ON CONFLICT, unique khi nop don dong thoi). InMemory khong chay duoc nhung thu nay.
+    # Moi lan chay, test tu tao mot database ats_test_<guid> rieng roi xoa.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ats
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ats"
+          --health-interval 5s
+          --health-retries 10
+
     steps:
       - name: Lấy mã nguồn
         uses: actions/checkout@v4
@@ -41,8 +58,15 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      # Kiểm định dạng (whitespace, style, analyzer) trước khi build: lỗi kiểu này
+      # rẻ nhất khi bắt ở CI, không phải ở buổi review. Sửa tại máy: `dotnet format`.
+      - name: Kiểm định dạng code
+        run: dotnet format --verify-no-changes --no-restore
+
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
+        env:
+          ATS_TEST_POSTGRES: "Host=localhost;Port=5432;Username=ats;Password=ci_password;Database=postgres"
         run: dotnet test --no-build --configuration Release --verbosity normal

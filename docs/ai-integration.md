@@ -39,9 +39,11 @@ Input: rawCv (text từ PDF/DOCX) + JobRequirement (JD)
 [4] AiScoringPipeline.ScoreAsync(anonymizedCv, jd):
    │
    │   Adapter 1: OpenAiScoringAdapter
-   │     └─ gpt-4o-mini, structured output
-   │     └─ retry 3 lần với exponential backoff
+   │     └─ gpt-4o-mini, structured output (JSON schema strict)
+   │     └─ retry 3 lần với exponential backoff (ClientRetryPolicy của OpenAI SDK)
    │     └─ fail → Adapter 2
+   │   ⏱ Adapter 1 + 2 dùng CHUNG ngân sách `Ai:PreviewTimeoutSeconds` (30s): hết giờ →
+   │     bỏ qua mọi tầng AI còn lại, chạy thẳng Adapter 3
    │
    │   Adapter 2: EmbeddingScoringAdapter
    │     └─ text-embedding-3-small, cosine similarity
@@ -51,7 +53,8 @@ Input: rawCv (text từ PDF/DOCX) + JobRequirement (JD)
    │
    │   Adapter 3: KeywordScoringAdapter (LUÔN chạy được)
    │     └─ đếm keyword từ JD.RequiredSkills có trong CV
-   │     └─ score = matchedCount / totalRequired * 100
+   │     └─ score = round(matchedCount / totalRequired * 100)  (JD không có kỹ năng → 50)
+   │     └─ +5 mỗi kỹ năng ưu tiên khớp (tối đa +10); −10 nếu thiếu số năm kinh nghiệm
    │
    ▼
 [5] Ghi kết quả — hai chỗ khác nhau, đừng nhầm:
@@ -144,14 +147,26 @@ Infrastructure. Lý do đầy đủ ở `architecture.md` ADR-3; tóm tắt: con
 vào sẽ chỉ còn là hình thức. `SimpleAnonymizer` là regex thuần, không I/O, không SDK ngoài,
 nên đặt trong Domain hoàn toàn hợp lệ.
 
-`SimpleAnonymizer` phase 1 dùng regex:
+`SimpleAnonymizer` phase 1 dùng regex (thứ tự thay thế có ý nghĩa — xem code):
 
+- Link mạng xã hội (`facebook.com/…`, `fb.com/…`, `linkedin.com/in/…`, `github.com/…`, có/không `https://www.`) → `[LINK]`
 - Email → `[EMAIL]`
-- SĐT Việt Nam (`0\d{9,10}`, `+84\d{9,10}`) → `[PHONE]`
-- Tên (regex đơn giản: 2-4 từ ghép, viết hoa chữ cái đầu, ở đầu CV) → `[NAME]`
-- Địa chỉ (từ khóa "Địa chỉ:", "Address:") → `[ADDRESS]`
-- Tên trường (từ khóa "Đại học", "University") → `[SCHOOL]` (giữ lại "chuyên ngành X" nếu có)
+- SĐT Việt Nam, có dấu cách/chấm/gạch: `0912345678`, `0912 345 678`, `091.234.5678`,
+  `+84 912 345 678`, `(+84) 912345678`, `028 3812 3456` → `[PHONE]`
+  (cần 9–10 chữ số sau đầu số nên `2019 - 2022`, `03/2020`, `5 năm` không bị nuốt)
+- Tên: dòng có nhãn "Họ và tên:", "Full name:" → `[NAME]`; dòng ĐẦU TIÊN gồm 2–5 từ viết hoa
+  chữ cái đầu, không số, không chứa kỹ năng → `[NAME]`
+- Ngày sinh: nhãn "Ngày sinh", "Date of birth", "DOB" → `[DOB]`; ngày đủ 3 phần `dd/mm/yyyy` → `[DATE]`
+- Địa chỉ: nhãn "Địa chỉ:", "Address:", "Nơi ở:", "Thường trú:", "Quê quán:" → `[ADDRESS]`;
+  "số nhà + đường/phố/ngõ/hẻm …" → `[ADDRESS]`
+- Tên trường: "Đại học", "Cao đẳng", "Học viện", "THPT", "University (of)", "College", "Academy",
+  và dạng "RMIT University" → `[SCHOOL]` (giữ lại "- chuyên ngành X" phía sau)
 - Tên công ty cũ (khó tự động) → **HR duyệt lại tay khi thấy sai**
+
+Sau khi gỡ PII, `SimpleAnonymizer` điền `AnonymizedCv.Skills` (danh mục ~70 kỹ năng phổ biến
+trong `SkillCatalog`, có alias: `K8s`→Kubernetes, `Postgres`→PostgreSQL, `ReactJS`→React…, so
+khớp nguyên từ nên "Java" không khớp "JavaScript") và `ExperienceKeywords` ("5 năm kinh nghiệm",
+"senior"…). Bộ test PII ở `ATS.AiScreening.Tests/AnonymizerPiiTests.cs`.
 
 ### Phase 2 — ẩn danh bằng LLM mà không phá bảo đảm compile-time
 
@@ -326,3 +341,28 @@ adapter được dùng, latency p95.
   chỉ nhận `AnonymizedCv`, không nhận `string` hay `Cv`.
 - Prompt hệ thống có câu "Không được nêu tên riêng" — nếu LLM lỡ lộ tên qua Strengths/Gaps thì
   vẫn có tuyến ẩn danh ở tầng dưới, coi như defense in depth.
+- Từ tuần 5, ArchitectureTests quy tắc 9–10 ép thêm: không type nào ngoài `AiScreening.Domain`
+  hiện thực `IAnonymizer`, và MỌI port trong `AiScreening.Domain.Ports` nhận `AnonymizedCv` thì
+  không nhận thêm `string`.
+
+## 9. Hiện thực trong code (tuần 5–9) — chỗ lệch so với bản thiết kế
+
+| Chủ đề | Hiện thực | Ghi chú |
+|---|---|---|
+| Đọc dữ liệu tuyển dụng | Port riêng `IRecruitmentReader` (AiScreening.Application) → `RecruitmentReaderAdapter` (Infrastructure) bọc `IRecruitmentQueries` | Domain/Application **không** tham chiếu Recruitment (ArchitectureTests quy tắc 6–7) |
+| JD → `JobRequirement` | `JobRequirementParser`: tách `Requirements` theo dòng / `,` `;` / gạch đầu dòng / "và", "hoặc"; mảnh có kỹ năng trong danh mục → tên chuẩn; mảnh ≤ 5 từ → kỹ năng tự do; dòng "ưu tiên / lợi thế / nice to have" → `NiceToHaveSkills`; `MinYearsExperience` = số lớn nhất trong "N năm / N years" | |
+| Cache + pipeline | `CachedScoringService` (Application) = bước [3]–[5a]. Preview chèn **trừ lượt** giữa "tra cache" và "chấm" | Kết quả `Keyword` không ghi cache; `Fake` có ghi (dữ liệu demo) |
+| Timeout preview | `AiScoringPipeline` dùng chung ngân sách `Ai:PreviewTimeoutSeconds` cho OpenAI + Embedding, ép bằng `WaitAsync` (cắt được cả adapter không tôn trọng token) | Người gọi huỷ (ct) thì ném lỗi huỷ, **không** rơi xuống |
+| `AiProvider` | `Fake` → chỉ `FakeAiScoringAdapter` (điểm tất định 40–95 từ SHA-256 nội dung) + câu hỏi Template. Khác `Fake` → pipeline; thiếu `OpenAI:ApiKey`/`OPENAI_API_KEY` → chỉ còn Keyword | `ModelVersion` trong CacheKey: `fake-v1` hoặc `OpenAI:Model` |
+| Hạn mức | Ngày tính theo **UTC**, reset 00:00 UTC (`resetsAt` trong `QuotaDto` và body 429). Postgres: `INSERT … ON CONFLICT … DO UPDATE … WHERE count < limit RETURNING` (vượt trần = không trả dòng). Provider khác (EF InMemory trong test): đọc-sửa-ghi qua entity | |
+| Tiến độ lô | `IScreeningJobRepository.UpdateProgressAsync(id, done, failed)` nhận **số cộng thêm**; trên DB quan hệ là một `UPDATE … SET done_count = done_count + n` nguyên tử, tự `Done` khi đủ | Lô 0 đơn `Done` ngay khi tạo |
+| Cache id | Thêm `IAiScoreCacheRepository.FindIdAsync` để `ai_scores.cache_id` trỏ về dòng cache | Bổ sung, không đổi chữ ký cũ |
+| Câu hỏi đã lưu | Entity `InterviewQuestionEntry` (bảng `interview_questions`, `order_index`) — tên khác value object `InterviewQuestion` của port | PUT thay **toàn bộ** bộ câu hỏi trong một `SaveChanges` |
+| Template câu hỏi | 10 câu: 6 technical (ưu tiên kỹ năng JD mà CV có nhắc), 2 behavioral, 2 situational | Fallback khi OpenAI lỗi/hết giờ (`Ai:QuestionTimeoutSeconds`, 45s) |
+| Hàng đợi | Redis LIST `ats:aiscreening:queue`: `LPUSH` / `RPOP` (StackExchange.Redis không hỗ trợ lệnh chặn BRPOP), kết nối lười, `AbortOnConnectFail=false`. `Redis:ConnectionString` trống → `InMemoryScreeningQueue` (**chỉ một process** — Worker không thấy) | |
+| Trigger sau nộp đơn | `ScreeningTriggerAdapter` ghi `AiScore Pending` rồi enqueue `ScreeningTask(appId, Guid.Empty)`; lỗi Redis/DB **không** ném ngược về Recruitment | Điểm ở lại Pending, HR chạy lô sau vẫn chấm được |
+| `ai_scores` | Thêm cột `failure_reason` (lý do Failed, không chứa nội dung CV) và `updated_at` | TV1 đưa vào migration tích hợp |
+
+Cấu hình: `AiProvider`, `OpenAI:ApiKey`, `OpenAI:Model`, `OpenAI:EmbeddingModel`, `Ai:PreviewLimitPerDay` (20),
+`Ai:BatchLimitPerDay` (5), `Ai:PreviewTimeoutSeconds` (30), `Ai:QuestionTimeoutSeconds` (45),
+`Ai:MaxApplicationsPerBatch` (500), `Redis:ConnectionString`.

@@ -1,3 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!--
+      Bat BUOC tuong minh. SDK chi tu bat co nay khi luc restore THAY file .razor, ma
+      docker/Dockerfile restore truoc khi copy ma nguon (de cache layer) -> image thieu
+      _framework/blazor.web.js, trang Blazor trong trang. Build local van xanh nen loi chi
+      lo ra trong container.
+    -->
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
+  </PropertyGroup>
+
 </Project>

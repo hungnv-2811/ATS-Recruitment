@@ -107,6 +107,7 @@ ATS-Recruitment/
 
 | File | Nội dung |
 |---|---|
+| [`docs/khao-sat.md`](docs/khao-sat.md) | Khảo sát: hệ thống tương tự, phiếu hỏi ứng viên/HR, lựa chọn công nghệ |
 | [`docs/architecture.md`](docs/architecture.md) | Kiến trúc: ràng buộc, 3 quyết định lớn, đánh đổi |
 | [`docs/use-cases.md`](docs/use-cases.md) | Tác nhân, use case, sơ đồ, trạng thái |
 | [`docs/wireframes.md`](docs/wireframes.md) | Bố cục & hành vi từng màn hình, bản đồ màn hình → tuần |
@@ -116,6 +117,7 @@ ATS-Recruitment/
 | [`docs/weekly-plan.md`](docs/weekly-plan.md) | Kế hoạch 10 tuần theo milestone |
 | [`docs/team-assignment.md`](docs/team-assignment.md) | Phân công 4 thành viên theo module |
 | [`docs/code-review.md`](docs/code-review.md) | Checklist review |
+| [`docs/worklog/`](docs/worklog/README.md) | Báo cáo công việc hàng tuần của từng thành viên + bảng tiến độ chung |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Nhánh, commit, PR |
 
 ## 7. Chạy thử
@@ -138,8 +140,65 @@ hoặc để pipeline rơi xuống `KeywordScoringAdapter` — tầng này khôn
 Cổng bị dự án khác chiếm thì đổi trong `docker/.env` (ví dụ `API_PORT=18080`), **đừng sửa
 `docker-compose.yml`**. Xem [`CONTRIBUTING.md`](CONTRIBUTING.md) mục 7.
 
-Migration tự chạy lúc API khởi động (`Database__AutoMigrate=true` trong compose), nên sau
-`up -d` là database đã có sẵn 3 schema.
+Migration và dữ liệu demo tự chạy lúc API khởi động (`DB_AUTO_MIGRATE=true`,
+`DB_SEED_DEMO_DATA=true` trong `docker/.env`), nên sau `up -d` là có ngay 3 schema, 14 bảng và
+dữ liệu để demo — **không cần** `OPENAI_API_KEY`. Seed idempotent: khởi động lại không nhân đôi.
+
+### Cho máy khác truy cập (Cloudflare Tunnel)
+
+Chỉ cần mở cổng web (8081) — giao diện tự gọi API bên trong mạng docker.
+
+```bash
+winget install --id Cloudflare.cloudflared             # một lần
+cloudflared tunnel --url http://localhost:8081         # in ra link https://xxxx.trycloudflare.com
+```
+
+Gửi link đó cho người khác. Để link trong email "quên mật khẩu" trỏ đúng, đặt
+`WEB_BASE_URL=https://xxxx.trycloudflare.com` trong `docker/.env` rồi
+`docker compose -f docker/docker-compose.yml up -d api`. Link chỉ sống khi máy đang bật,
+docker đang chạy và cửa sổ `cloudflared` còn mở; mỗi lần chạy lại là một link mới. Ai có link
+cũng đăng nhập được bằng tài khoản demo — tắt tunnel (Ctrl+C) sau buổi demo.
+
+### Tài khoản demo
+
+| Vai | Email | Mật khẩu |
+|---|---|---|
+| Quản trị viên | `admin@ats.local` | `Admin@123` |
+| HR | `hr1@ats.local` … `hr3@ats.local` | `Demo@123` |
+| Ứng viên | `ungvien1@ats.local` … `ungvien8@ats.local` | `Demo@123` |
+
+Chỉ dùng cho môi trường dev/demo. Deploy thật: đặt `DB_SEED_DEMO_DATA=false` và đổi
+`SEED_ADMIN_PASSWORD`.
+
+### Kịch bản demo 5 phút
+
+1. Đăng nhập `ungvien1@ats.local` → **Việc làm** → mở một tin → chọn CV → **Xem độ phù hợp**
+   (điểm kèm nhãn nguồn; bấm lần hai trúng cache, không trừ lượt) → **Ứng tuyển**.
+2. Đăng nhập `hr1@ats.local` → **Tin của tôi** → **Ứng viên** → **Chạy sàng lọc AI** (thanh tiến
+   độ chạy qua worker) → mở một hồ sơ → **Hẹn phỏng vấn** → **Gợi ý câu hỏi** → lưu → mở
+   http://localhost:8025 thấy thư mời.
+3. **Nhập đánh giá** → chuyển trạng thái → **Báo cáo** xem dashboard (tỉ lệ cache, nguồn điểm).
+
+### Kiểm thử
+
+```bash
+dotnet build          # 0 warning (TreatWarningsAsErrors)
+dotnet test           # ~300 test: unit, ArchitectureTests (14), integration + end-to-end
+```
+
+Bộ test `Category=Postgres` (migration, seeder, SQL báo cáo, quota, nộp đơn đồng thời) chỉ chạy
+khi có biến `ATS_TEST_POSTGRES`; CI luôn đặt biến này và dùng service `postgres:16`. Chạy ở máy
+khi `docker compose` đang bật (test tự tạo database `ats_test_<guid>` riêng rồi xoá, không đụng
+dữ liệu demo):
+
+```bash
+ATS_TEST_POSTGRES="Host=localhost;Port=5432;Username=ats;Password=Dev_Password123!;Database=postgres" \
+  dotnet test --filter Category=Postgres     # đổi Port theo DB_PORT trong docker/.env
+```
+
+Máy bật **Windows Smart App Control** sẽ chặn nạp DLL vừa build nên `dotnet test` trên Windows
+báo "An Application Control policy has blocked this file". Đừng tắt chính sách bảo mật — chạy
+test trong WSL Ubuntu (có .NET 10 SDK) hoặc để CI trên GitHub Actions chạy.
 
 ## 8. Nhóm
 

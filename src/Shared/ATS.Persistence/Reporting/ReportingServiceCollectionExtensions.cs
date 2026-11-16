@@ -8,8 +8,13 @@ namespace ATS.Persistence.Reporting;
 /// <remarks>
 /// Bao cao la doc thuan va JOIN xuyen module, nen dat o ATS.Persistence (noi duy nhat
 /// "thay" ca 3 schema) thay vi ep mot module doc bang cua module khac.
+/// Goi SAU AddAtsPersistence (can AtsDbContext). Khong mo ket noi luc dang ky.
 /// </remarks>
 public static class ReportingServiceCollectionExtensions
 {
-    public static IServiceCollection AddAtsReporting(this IServiceCollection services) => services;
+    public static IServiceCollection AddAtsReporting(this IServiceCollection services)
+    {
+        services.AddScoped<IDashboardReportService, DashboardReportService>();
+        return services;
+    }
 }

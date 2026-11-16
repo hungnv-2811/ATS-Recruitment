@@ -26,13 +26,23 @@
             <NavLink href="dashboard">Báo cáo</NavLink>
         }
 
-        <span class="nav-user" title="@user.Email">@user.FullName · @Labels.Role(user.Role)</span>
-        <button type="button" class="link-button" @onclick="SignOutAsync">Đăng xuất</button>
+        <div class="nav-right">
+            <span class="nav-user" title="@user.Email">
+                <span class="avatar" aria-hidden="true">@Initials(user.FullName)</span>
+                <span>
+                    @user.FullName
+                    <span class="role-tag">· @Labels.Role(user.Role)</span>
+                </span>
+            </span>
+            <button type="button" class="btn" @onclick="SignOutAsync">Đăng xuất</button>
+        </div>
     }
     else if (Session.IsLoaded)
     {
-        <NavLink href="login">Đăng nhập</NavLink>
-        <NavLink href="register">Đăng ký</NavLink>
+        <div class="nav-right">
+            <a class="btn" href="login">Đăng nhập</a>
+            <a class="btn btn-primary" href="register">Đăng ký</a>
+        </div>
     }
 </nav>
 
@@ -49,6 +59,18 @@
     {
         await Session.SignOutAsync();
         Nav.NavigateTo("login");
+    }
+
+    /// <summary>"Nguyen Van An" → "NA": chu dau cua ho va ten.</summary>
+    private static string Initials(string fullName)
+    {
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..1].ToUpperInvariant(),
+            _ => (parts[0][..1] + parts[^1][..1]).ToUpperInvariant(),
+        };
     }
 
     public void Dispose() => Session.Changed -= OnChanged;
