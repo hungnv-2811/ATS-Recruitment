@@ -3,6 +3,18 @@
   <ItemGroup>
     <ProjectReference Include="../ATS.AiScreening.Application/ATS.AiScreening.Application.csproj" />
     <ProjectReference Include="../../../Shared/ATS.Persistence/ATS.Persistence.csproj" />
+    <!-- Cross-module DUNG CHIEU (architecture.md muc 3.3): AiScreening.Infrastructure hien thuc
+         port cua Recruitment.Application (IApplicationScreeningTrigger, IApplicationScoreReader)
+         va doc du lieu qua IRecruitmentQueries. Recruitment KHONG BAO GIO tham chieu nguoc lai. -->
+    <ProjectReference Include="../../Recruitment/ATS.Recruitment.Application/ATS.Recruitment.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
 
 </Project>
