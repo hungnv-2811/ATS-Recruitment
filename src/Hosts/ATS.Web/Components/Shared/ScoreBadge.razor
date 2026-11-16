@@ -12,6 +12,12 @@ else
     <span class="score-badge @SourceClass" title="@Tooltip">
         <span class="score-value">@Score</span>
         <span class="score-source">@Symbol @SourceLabel</span>
+        @if (IsRescoring)
+        {
+            @* API giu diem CU (va nguon cua chinh diem do) trong luc cham lai — phai noi ro day
+               la ket qua lan truoc, khong phai ket qua moi. *@
+            <span class="score-rescoring" title="Điểm và nguồn của lần chấm trước">· điểm cũ, đang chấm lại</span>
+        }
         @if (ShowHint && IsKeyword)
         {
             <span class="score-hint">độ chính xác thấp — nên đọc CV trực tiếp</span>
@@ -34,6 +40,8 @@ else
     public bool ShowHint { get; set; }
 
     private bool IsKeyword => AdapterUsed == "Keyword";
+
+    private bool IsRescoring => ScreeningStatus is "Pending" or "Processing";
 
     private string Symbol => AdapterUsed switch
     {

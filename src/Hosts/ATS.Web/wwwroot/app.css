@@ -225,6 +225,7 @@ input[type=datetime-local], select, textarea {
 .score-keyword .score-source, .score-keyword .score-value { color: var(--score-keyword); }
 .score-fake .score-source, .score-fake .score-value { color: var(--score-fake); }
 .score-none { color: var(--muted); }
+.score-rescoring { font-size: 0.8rem; color: var(--muted); font-style: italic; }
 
 .fit-result { margin-top: 0.75rem; }
 .fit-score { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
