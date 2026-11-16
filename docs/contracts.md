@@ -403,3 +403,139 @@ POST   /api/interviews/{id}/evaluations   (HR: nhập đánh giá)
 - Vượt hạn mức AI → `429 Too Many Requests`, body kèm `PreviewRemainingToday` và thời điểm reset
 - Mọi response có điểm AI **phải kèm `AdapterUsed`**. Điểm từ `Keyword` và điểm từ `OpenAI` là
   hai thang khác nhau; giấu nguồn đi là để HR so sánh nhầm hai con số không cùng đơn vị
+
+---
+
+## 8. Chốt tuần 3 — contract chi tiết để 4 người làm song song
+
+> Cả nhóm chốt ở buổi sync đầu tuần 3. Mục này **ghi đè** phần "phác thảo" ở mục 4–5 khi hai
+> chỗ khác nhau. Đổi bất kỳ dòng nào dưới đây = báo cả nhóm trước (TV3 dựng UI theo đúng mục này).
+
+### 8.1. Quy ước chung
+
+- JSON **camelCase**; enum trả về dạng **chuỗi** (`"Applied"`, `"Open"`…); thời gian là
+  `DateTimeOffset` ISO-8601 UTC.
+- Lỗi luôn là **ProblemDetails** có thêm trường `code` (`validation` | `not_found` | `conflict` |
+  `forbidden` | `unauthorized` | `quota_exceeded` | `external_service`). Ánh xạ status một chỗ:
+  `ATS.Api/Http/ResultHttpExtensions.cs`.
+- JWT: claim `sub` (user id), `email`, `name` (họ tên), `role` ∈ `Candidate` | `HR` | `Admin`.
+  Hạn token: `Jwt:ExpiresMinutes` (mặc định 120). Policy: `CandidateOnly`, `HrOnly`, `AdminOnly`
+  (`ATS.Api/Auth/AuthConventions.cs`).
+- Bảng/cột **snake_case** tự động (`UseSnakeCaseNamingConvention`); mỗi
+  `IEntityTypeConfiguration` chỉ đặt **tên bảng + schema** tường minh, ví dụ
+  `builder.ToTable("cvs", AtsDbContext.RecruitmentSchema)`.
+- Mỗi module tự đăng ký DI trong `XxxModule.AddXxxModule(...)`; endpoint trong
+  `ATS.Api/Endpoints/XxxEndpoints.cs`. `Program.cs` đã nối sẵn, không ai cần sửa nó để thêm tính năng.
+
+### 8.2. Contract liên module (đã có code)
+
+| Interface | Đặt ở | Hiện thực | Ghi chú |
+|---|---|---|---|
+| `IApplicationScreeningTrigger` | `Recruitment.Application/Ports` | `AiScreening.Infrastructure` | Gọi sau khi nộp đơn thành công |
+| `IApplicationScoreReader` | `Recruitment.Application/Ports` | `AiScreening.Infrastructure` | Recruitment ghép điểm vào danh sách xếp hạng |
+| `IRecruitmentQueries` | `Recruitment.Application/Contracts` | `Recruitment.Infrastructure` | AiScreening đọc CV/JD qua đây, **không** đọc bảng `recruitment.*` trực tiếp |
+| `IProcessScreeningHandler` | `AiScreening.Application/Abstractions` | `AiScreening.Application` | Worker gọi cho mỗi `ScreeningTask` |
+| `ICvTextExtractor` | `Recruitment.Domain/Ports` | `Recruitment.Infrastructure/Shared` | Trích text **đồng bộ lúc upload**, lưu `cvs.extracted_text` |
+
+`Recruitment` đăng ký bản NoOp của hai port đầu bằng `TryAdd`; `AiScreening` đăng ký **sau** và
+ghi đè bằng adapter thật. Nhờ vậy mỗi nhánh feature tự build/test được.
+
+### 8.3. Endpoint và DTO
+
+**Auth / Identity — TV2**
+
+| Method | Route | Quyền | Request → Response |
+|---|---|---|---|
+| POST | `/api/auth/register` | ẩn danh | `RegisterRequest(Email, Password, FullName, Role)` — `Role` ∈ `Candidate`/`HR` → `200 AuthResponse`; trùng email `409` |
+| POST | `/api/auth/login` | ẩn danh | `LoginRequest(Email, Password)` → `200 AuthResponse`; sai `401` |
+| POST | `/api/auth/forgot-password` | ẩn danh | `ForgotPasswordRequest(Email)` → **luôn `204`**. Mail chứa link `{Web:BaseUrl}/reset-password?token=...` |
+| POST | `/api/auth/reset-password` | ẩn danh | `ResetPasswordRequest(Token, NewPassword)` → `204`; token sai/hết hạn/đã dùng `400` |
+| GET | `/api/me` | đăng nhập | → `MeDto(UserId, Email, FullName, Role)` |
+| GET | `/api/admin/users` | Admin | → `UserDto[]` |
+| PATCH | `/api/admin/users/{id}` | Admin | `UpdateUserRequest(IsActive?, Role?)` → `204` |
+
+`AuthResponse(AccessToken, ExpiresAt, UserId, Email, FullName, Role)` ·
+`UserDto(Id, Email, FullName, Role, IsActive, CreatedAt)` · mật khẩu tối thiểu 8 ký tự.
+
+**CV — TV2**
+
+| Method | Route | Quyền | Request → Response |
+|---|---|---|---|
+| GET | `/api/me/cvs` | Candidate | → `CvDto[]` |
+| POST | `/api/me/cvs` | Candidate | multipart `file` + `name` (pdf/docx, ≤ 5 MB) → `201 CvDto`. CV đầu tiên tự thành mặc định |
+| DELETE | `/api/me/cvs/{id}` | Candidate | → `204`; CV đã dùng để nộp đơn → `409` |
+| PATCH | `/api/me/cvs/{id}/default` | Candidate | → `204` |
+
+`CvDto(Id, Name, FileType, FileSizeKb, IsDefault, UploadedAt, HasText)` — `HasText=false` khi
+không trích được chữ.
+
+**Job — TV2**
+
+| Method | Route | Quyền | Request → Response |
+|---|---|---|---|
+| GET | `/api/jobs?search=&location=&employmentType=&page=1&pageSize=20` | ẩn danh | → `PagedResult<JobDto>` — chỉ tin `Open` |
+| GET | `/api/jobs/{id}` | ẩn danh (tin Open) / HR chủ tin | → `JobDto` |
+| GET | `/api/hr/jobs` | HR | → `JobDto[]` của chính HR, mọi trạng thái |
+| POST | `/api/jobs` | HR | `CreateJobRequest(Title, Description, Requirements, Location, EmploymentType, Publish)` → `201 JobDto` |
+| PATCH | `/api/jobs/{id}` | HR chủ tin | `UpdateJobRequest(Title?, Description?, Requirements?, Location?, EmploymentType?)` → `200 JobDto` |
+| POST | `/api/jobs/{id}/publish` | HR chủ tin | → `204` (Draft → Open) |
+| POST | `/api/jobs/{id}/close` | HR chủ tin | → `204` |
+
+`JobDto(Id, Title, Description, Requirements, Location, EmploymentType, Status, PostedAt, ClosedAt, ApplicationCount)` ·
+`PagedResult<T>(Items, Total, Page, PageSize)` · `EmploymentType` ∈ `FullTime`/`PartTime`/`Internship`/`Contract`.
+
+**Ứng tuyển + phỏng vấn — TV2**
+
+| Method | Route | Quyền | Request → Response |
+|---|---|---|---|
+| POST | `/api/applications` | Candidate | `ApplyRequest(JobId, CvId)` → `201 ApplicationDto`; đã nộp tin này `409`; tin không Open `400` |
+| GET | `/api/me/applications` | Candidate | → `ApplicationDto[]` |
+| GET | `/api/jobs/{jobId}/applications?status=` | HR chủ tin | → `RankedApplicationDto[]` xếp điểm giảm dần, **chưa chấm ở cuối** (RB9) |
+| GET | `/api/applications/{id}` | HR chủ tin / Candidate chủ đơn | → `ApplicationDetailDto` |
+| GET | `/api/applications/{id}/cv-file` | HR chủ tin / Candidate chủ đơn | → file gốc |
+| PATCH | `/api/applications/{id}/status` | HR chủ tin | `ChangeStatusRequest(Status, Note?)` → `204`; chuyển sai luật `400` |
+| POST | `/api/applications/{id}/interviews` | HR chủ tin | `ScheduleInterviewRequest(ScheduledAt, Mode, LocationOrLink, InterviewerName)` → `201 InterviewDto` |
+| GET | `/api/applications/{id}/interviews` | HR chủ tin / Candidate chủ đơn | → `InterviewDto[]` |
+| GET | `/api/hr/interviews` | HR | → `InterviewListItemDto[]` (lịch sắp tới của HR) |
+| POST | `/api/interviews/{id}/resend-invite` | HR chủ tin | → `204`; SMTP vẫn lỗi `502` |
+| POST | `/api/interviews/{id}/evaluations` | HR chủ tin | `SubmitEvaluationRequest(Rating 1–5, Comment, Recommendation)` → `201 EvaluationDto` |
+
+- `ApplicationDto(Id, JobId, JobTitle, CvId, CvName, Status, AppliedAt, AiScore, AiSummary, AiAdapterUsed, ScreeningStatus)`
+- `RankedApplicationDto(Id, CandidateName, CvId, CvName, Status, AppliedAt, AiScore, AiSummary, AiAdapterUsed, ScreeningStatus)`
+- `ApplicationDetailDto(Id, JobId, JobTitle, CandidateName, CandidateEmail, CvId, CvName, Status, HrNote, AppliedAt, UpdatedAt, AiScore, AiSummary, AiAdapterUsed, ScreeningStatus)`
+- `InterviewDto(Id, ApplicationId, ScheduledAt, Mode, LocationOrLink, InterviewerName, Status, EmailSent, Evaluation)` — `Mode` ∈ `online`/`onsite`, `Status` ∈ `Scheduled`/`Done`/`Cancelled`
+- `InterviewListItemDto(Id, ApplicationId, JobTitle, CandidateName, ScheduledAt, Mode, Status, EmailSent)`
+- `EvaluationDto(Id, Rating, Comment, Recommendation, CreatedAt)` — `Recommendation` ∈ `Hire`/`Reject`/`Consider`
+- Luật chuyển trạng thái: `Applied→Screening→Interview→Hired`, từ mọi trạng thái chưa kết thúc
+  sang `Rejected`; không nhảy cóc. Hẹn phỏng vấn tự đưa đơn `Applied`/`Screening` sang `Interview`.
+- Email mời phỏng vấn gửi **sau** khi lưu, **ngoài** transaction; lỗi SMTP → `EmailSent=false`, vẫn `201`.
+
+**AI — TV4**
+
+| Method | Route | Quyền | Request → Response |
+|---|---|---|---|
+| POST | `/api/ai/score-preview` | Candidate (CV của mình, tin Open) | `ScorePreviewRequest(CvId, JobId)` → `200 ScorePreviewResponse`; hết lượt `429` (body có `previewRemainingToday`, `resetsAt`) |
+| GET | `/api/me/ai-quota` | đăng nhập | → `QuotaDto(PreviewUsedToday, PreviewLimitPerDay, PreviewRemainingToday, BatchUsedToday, BatchLimitPerDay, ResetsAt)` |
+| POST | `/api/screening-jobs` | HR chủ tin | `StartScreeningRequest(JobId)` → `202 ScreeningJobDto` |
+| GET | `/api/screening-jobs/{id}` | HR | → `ScreeningJobDto` |
+| GET | `/api/jobs/{jobId}/screening-jobs/latest` | HR chủ tin | → `ScreeningJobDto` hoặc `404` (UI nối lại thanh tiến độ sau khi rời trang) |
+| GET | `/api/applications/{id}/ai-score` | HR chủ tin / Candidate chủ đơn | → `AiScoreDto` |
+| POST | `/api/applications/{id}/questions` | HR chủ tin | → `InterviewQuestionDto[]` (sinh, **chưa lưu**) |
+| PUT | `/api/interviews/{id}/questions` | HR chủ tin | `SaveQuestionsRequest(Questions)` → `204` |
+| GET | `/api/interviews/{id}/questions` | HR chủ tin | → `InterviewQuestionDto[]` |
+
+- `ScorePreviewResponse(Score, Summary, Strengths, Gaps, AdapterUsed, CacheHit, PreviewRemainingToday)`
+- `ScreeningJobDto(Id, JobId, TargetCount, DoneCount, FailedCount, Status, StartedAt, FinishedAt)` — `Status` ∈ `Queued`/`Running`/`Done`/`Cancelled`
+- `AiScoreDto(ApplicationId, Score, Summary, Strengths, Gaps, AdapterUsed, ScreeningStatus, ScoredAt)`
+- `InterviewQuestionDto(Category, Question, Source)`
+- `AdapterUsed` ∈ `OpenAI` | `Embedding` | `Keyword` | `Fake`.
+
+**Báo cáo — TV1**
+
+| Method | Route | Quyền | Response |
+|---|---|---|---|
+| GET | `/api/reports/dashboard` | HR (tin của mình) / Admin (toàn hệ thống) | `DashboardDto` |
+
+`DashboardDto(TotalJobs, OpenJobs, TotalApplications, ApplicationsByStatus, HiredRate, TopJobs, Ai)` —
+`ApplicationsByStatus`: map trạng thái → số đơn; `TopJobs`: `[{JobId, Title, ApplicationCount}]` (5 tin);
+`Ai`: `{ScoredCount, FailedCount, CacheEntries, CacheHits, CacheHitRate, ByAdapter}`.

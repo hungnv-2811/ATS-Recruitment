@@ -25,7 +25,11 @@ public static class PersistenceServiceCollectionExtensions
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         services.AddSingleton(new ModuleAssemblies(moduleAssemblies));
-        services.AddDbContext<AtsDbContext>(options => options.UseNpgsql(connectionString));
+        // snake_case cho moi bang/cot: khop docs/database-design.md ma khong ai phai
+        // goi HasColumnName tung cot. Ten schema van dat tuong minh trong tung config.
+        services.AddDbContext<AtsDbContext>(options => options
+            .UseNpgsql(connectionString)
+            .UseSnakeCaseNamingConvention());
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AtsDbContext>());
 
         return services;

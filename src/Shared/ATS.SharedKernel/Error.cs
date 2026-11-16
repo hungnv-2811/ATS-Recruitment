@@ -13,6 +13,8 @@ public sealed record Error(string Code, string Message)
 
     public static Error Forbidden(string message) => new("forbidden", message);
 
+    public static Error Unauthorized(string message) => new("unauthorized", message);
+
     public static Error QuotaExceeded(string message) => new("quota_exceeded", message);
 
     public static Error External(string message) => new("external_service", message);
