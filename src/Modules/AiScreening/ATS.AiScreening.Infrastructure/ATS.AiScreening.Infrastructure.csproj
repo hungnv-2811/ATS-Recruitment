@@ -15,6 +15,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <!-- Tang 1-2 cua pipeline cham diem + sinh cau hoi (ADR-3). -->
+    <PackageReference Include="OpenAI" />
+    <!-- Hang doi sang loc lo giua API va Worker (ADR-2). -->
+    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 
 </Project>

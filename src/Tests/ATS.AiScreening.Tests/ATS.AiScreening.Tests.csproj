@@ -4,4 +4,11 @@
     <ProjectReference Include="../../Modules/AiScreening/ATS.AiScreening.Infrastructure/ATS.AiScreening.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Repository/quota chay tren bo nho: khong can container Postgres de test. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <!-- ConfigurationBuilder + ServiceProvider that de kiem AddAiScreeningModule (ValidateOnBuild). -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
 </Project>

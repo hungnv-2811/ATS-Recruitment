@@ -4,4 +4,10 @@
     <ProjectReference Include="../ATS.AiScreening.Domain/ATS.AiScreening.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Chi ILogger<T> (log su kien ai.scoring). KHONG tham chieu Recruitment: du lieu tuyen dung
+         di qua port rieng IRecruitmentReader, adapter o Infrastructure (ArchitectureTests ep). -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
 </Project>
