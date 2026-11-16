@@ -1,0 +1,104 @@
+@page "/admin/users"
+@inherits SecurePage
+@inject AdminApi Admin
+
+<PageTitle>Tài khoản · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <h1>Quản lý tài khoản</h1>
+
+    <ErrorAlert Message="@_error" OnDismiss="() => _error = null" />
+
+    @if (_users is null)
+    {
+        <Spinner Text="Đang tải…" />
+    }
+    else
+    {
+        <input type="search" class="search" placeholder="Lọc theo email hoặc tên…" @bind="_filter" @bind:event="oninput" aria-label="Lọc" />
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Họ tên</th>
+                    <th>Vai</th>
+                    <th>Trạng thái</th>
+                    <th>Tạo</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in Filtered)
+                {
+                    var isSelf = user.Id == CurrentUser.UserId;
+                    <tr>
+                        <td>@user.Email</td>
+                        <td>@user.FullName</td>
+                        <td>
+                            <select value="@user.Role" disabled="@isSelf" @onchange="e => ChangeRoleAsync(user, e.Value?.ToString())" aria-label="Vai">
+                                <option value="@Roles.Candidate">@Labels.Role(Roles.Candidate)</option>
+                                <option value="@Roles.Hr">@Labels.Role(Roles.Hr)</option>
+                                <option value="@Roles.Admin">@Labels.Role(Roles.Admin)</option>
+                            </select>
+                        </td>
+                        <td>
+                            @if (user.IsActive)
+                            {
+                                <span class="pill pill-open">Hoạt động</span>
+                                @if (!isSelf)
+                                {
+                                    <button type="button" class="link-button text-danger" @onclick="() => SetActiveAsync(user, false)">Khoá</button>
+                                }
+                            }
+                            else
+                            {
+                                <span class="pill pill-closed">Đã khoá</span>
+                                <button type="button" class="link-button" @onclick="() => SetActiveAsync(user, true)">Mở khoá</button>
+                            }
+                        </td>
+                        <td>@Labels.Date(user.CreatedAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</PageGuard>
+
+@code {
+    private List<UserDto>? _users;
+    private string _filter = string.Empty;
+    private string? _error;
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Admin];
+
+    private IEnumerable<UserDto> Filtered => (_users ?? []).Where(u =>
+        string.IsNullOrWhiteSpace(_filter)
+        || u.Email.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+        || (u.FullName?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override Task OnAuthorizedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Admin.ListUsersAsync();
+        _users = result.Value ?? [];
+        _error ??= result.Error;
+    }
+
+    private async Task SetActiveAsync(UserDto user, bool active)
+    {
+        _error = (await Admin.UpdateUserAsync(user.Id, new UpdateUserRequest(active, null))).Error;
+        await LoadAsync();
+    }
+
+    private async Task ChangeRoleAsync(UserDto user, string? role)
+    {
+        if (string.IsNullOrEmpty(role) || role == user.Role)
+        {
+            return;
+        }
+
+        _error = (await Admin.UpdateUserAsync(user.Id, new UpdateUserRequest(null, role))).Error;
+        await LoadAsync();
+    }
+}

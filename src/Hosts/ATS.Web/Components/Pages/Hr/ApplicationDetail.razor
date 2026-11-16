@@ -1,0 +1,248 @@
+@page "/hr/applications/{ApplicationId:guid}"
+@inherits SecurePage
+@implements IAsyncDisposable
+@inject ApplicationApi Applications
+@inject InterviewApi Interviews
+@inject AiApi Ai
+@inject IJSRuntime Js
+
+<PageTitle>Hồ sơ ứng viên · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    @if (_app is null)
+    {
+        <ErrorAlert Message="@_error" />
+        @if (_error is null)
+        {
+            <Spinner Text="Đang tải hồ sơ…" />
+        }
+    }
+    else
+    {
+        <a href="hr/jobs/@_app.JobId/applications">← @_app.JobTitle</a>
+        <div class="page-head">
+            <h1>@_app.CandidateName <span class="muted">· @_app.JobTitle</span></h1>
+            <StatusPill Status="@_app.Status" />
+        </div>
+
+        <ErrorAlert Message="@_error" OnDismiss="() => _error = null" />
+
+        <div class="split">
+            <section class="panel">
+                <h2>CV gốc</h2>
+                <p class="muted small">
+                    Bản GỐC chưa ẩn danh (có tên, liên hệ) — chỉ HR xem. Bản gửi lên AI là bản đã ẩn danh (RB3).
+                </p>
+                <p>@_app.CvName @(string.IsNullOrEmpty(_app.CandidateEmail) ? "" : $"· {_app.CandidateEmail}")</p>
+                <div class="actions">
+                    <button type="button" class="btn" disabled="@_loadingCv" @onclick="DownloadCvAsync">Tải CV gốc</button>
+                    <button type="button" class="btn" disabled="@_loadingCv" @onclick="PreviewCvAsync">Xem PDF</button>
+                    @if (_loadingCv)
+                    {
+                        <Spinner />
+                    }
+                </div>
+                <iframe id="cv-preview" class="cv-frame @(_pdfUrl is null ? "hidden" : "")" title="CV gốc"></iframe>
+            </section>
+
+            <section class="panel">
+                <h2>Đánh giá của AI</h2>
+                @if (_score is { Score: not null })
+                {
+                    <div class="fit-score">
+                        <span class="big-score">@_score.Score <small>/ 100</small></span>
+                        <ScoreBadge Score="_score.Score" AdapterUsed="@_score.AdapterUsed" ShowHint="true" />
+                    </div>
+                    <p>@_score.Summary</p>
+                    @if (_score.Strengths is { Count: > 0 })
+                    {
+                        <p><span class="text-success">✓</span> @string.Join(", ", _score.Strengths)</p>
+                    }
+                    @if (_score.Gaps is { Count: > 0 })
+                    {
+                        <p><span class="text-danger">✗</span> @string.Join(", ", _score.Gaps)</p>
+                    }
+                    <p class="muted small">Chấm lúc @Labels.DateTime(_score.ScoredAt)</p>
+                }
+                else
+                {
+                    <ScoreBadge Score="null" ScreeningStatus="@(_score?.ScreeningStatus ?? _app.ScreeningStatus)" />
+                    <p class="muted">Thiếu điểm AI không chặn thao tác nào — bạn vẫn đọc CV và chuyển trạng thái bình thường.</p>
+                }
+
+                <label>
+                    Ghi chú riêng của HR
+                    <textarea rows="3" @bind="_note" placeholder="Lưu cùng lần chuyển trạng thái"></textarea>
+                </label>
+            </section>
+        </div>
+
+        <section class="panel">
+            <h2>Chuyển trạng thái</h2>
+            @if (Labels.NextStatuses(_app.Status).Count == 0)
+            {
+                <p class="muted">Hồ sơ đã ở trạng thái kết thúc.</p>
+            }
+            else
+            {
+                <div class="actions">
+                    @foreach (var next in Labels.NextStatuses(_app.Status).Where(s => s != "Rejected"))
+                    {
+                        <button type="button" class="btn" disabled="@_saving" @onclick="() => ChangeStatusAsync(next)">→ @Labels.ApplicationStatus(next)</button>
+                    }
+                    <a class="btn btn-primary" href="hr/applications/@_app.Id/interview">Hẹn phỏng vấn</a>
+                    <button type="button" class="btn btn-danger" disabled="@_saving" @onclick='() => ChangeStatusAsync("Rejected")'>Từ chối</button>
+                </div>
+            }
+        </section>
+
+        <section class="panel">
+            <h2>Phỏng vấn</h2>
+            @if (_interviews is null || _interviews.Count == 0)
+            {
+                <p class="muted">Chưa có buổi phỏng vấn nào.</p>
+            }
+            else
+            {
+                <ul class="card-list">
+                    @foreach (var interview in _interviews)
+                    {
+                        <li class="card">
+                            <div class="card-row">
+                                <strong>@Labels.DateTime(interview.ScheduledAt)</strong>
+                                <StatusPill Status="@interview.Status" Kind="interview" />
+                            </div>
+                            <div class="muted">@Labels.InterviewMode(interview.Mode) · @interview.LocationOrLink · @interview.InterviewerName</div>
+                            @if (!interview.EmailSent)
+                            {
+                                <div class="alert alert-warning">
+                                    Đã lưu lịch phỏng vấn nhưng chưa gửi được email.
+                                    <button type="button" class="link-button" @onclick="() => ResendAsync(interview)">Gửi lại lời mời</button>
+                                </div>
+                            }
+                            @if (interview.Evaluation is { } evaluation)
+                            {
+                                <p>
+                                    Đánh giá: <span class="stars">@(new string('★', evaluation.Rating))@(new string('☆', 5 - evaluation.Rating))</span>
+                                    · Đề xuất: <strong>@Labels.Recommendation(evaluation.Recommendation)</strong>
+                                </p>
+                                <p class="muted">@evaluation.Comment</p>
+                            }
+                            else
+                            {
+                                <a href="hr/interviews/@interview.Id/evaluate?applicationId=@_app.Id">Nhập đánh giá</a>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+            @if (_info is not null)
+            {
+                <div class="alert alert-success">@_info</div>
+            }
+        </section>
+    }
+</PageGuard>
+
+@code {
+    private ApplicationDetailDto? _app;
+    private AiScoreDto? _score;
+    private List<InterviewDto>? _interviews;
+    private string? _note;
+    private string? _error;
+    private string? _info;
+    private bool _saving;
+    private bool _loadingCv;
+    private string? _pdfUrl;
+
+    [Parameter]
+    public Guid ApplicationId { get; set; }
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr];
+
+    protected override Task OnAuthorizedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var detailTask = Applications.GetAsync(ApplicationId);
+        var scoreTask = Ai.GetScoreAsync(ApplicationId);
+        var interviewsTask = Interviews.ListForApplicationAsync(ApplicationId);
+        await Task.WhenAll(detailTask, scoreTask, interviewsTask);
+
+        var detail = await detailTask;
+        _app = detail.Value;
+        _error = detail.Error;
+        _note ??= _app?.HrNote;
+        _score = (await scoreTask).Value;
+        _interviews = (await interviewsTask).Value ?? [];
+    }
+
+    private async Task ChangeStatusAsync(string status)
+    {
+        _saving = true;
+        _info = null;
+        var result = await Applications.ChangeStatusAsync(ApplicationId, status, _note);
+        _saving = false;
+        _error = result.Error;
+        await LoadAsync();
+    }
+
+    private async Task ResendAsync(InterviewDto interview)
+    {
+        var result = await Interviews.ResendInviteAsync(interview.Id);
+        _error = result.StatusCode == 502 ? "Vẫn chưa gửi được email. Kiểm tra máy chủ mail rồi thử lại." : result.Error;
+        _info = result.IsSuccess ? "Đã gửi lại lời mời phỏng vấn." : null;
+        await LoadAsync();
+    }
+
+    private async Task<DownloadedFile?> FetchCvAsync()
+    {
+        _loadingCv = true;
+        var result = await Applications.DownloadCvAsync(ApplicationId);
+        _loadingCv = false;
+        _error = result.Error;
+        return result.Value;
+    }
+
+    private async Task DownloadCvAsync()
+    {
+        if (await FetchCvAsync() is { } file)
+        {
+            await Js.InvokeVoidAsync("ats.downloadFile", file.FileName, file.ContentType, Convert.ToBase64String(file.Content));
+        }
+    }
+
+    private async Task PreviewCvAsync()
+    {
+        if (await FetchCvAsync() is not { } file)
+        {
+            return;
+        }
+
+        if (!file.ContentType.Contains("pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            _error = "CV này không phải PDF — dùng nút \"Tải CV gốc\" để mở bằng Word.";
+            return;
+        }
+
+        await Js.InvokeVoidAsync("ats.revoke", _pdfUrl);
+        _pdfUrl = await Js.InvokeAsync<string>("ats.previewPdf", "cv-preview", Convert.ToBase64String(file.Content));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_pdfUrl is not null)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("ats.revoke", _pdfUrl);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Tab da dong — trinh duyet tu don object URL.
+            }
+        }
+
+        Dispose();
+    }
+}

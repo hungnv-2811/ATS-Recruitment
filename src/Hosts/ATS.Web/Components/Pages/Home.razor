@@ -1,14 +1,72 @@
 ﻿@page "/"
+@implements IDisposable
+@inject AuthSession Session
 
 <PageTitle>ATS Recruitment</PageTitle>
 
-<h1>ATS Recruitment</h1>
+<section class="hero">
+    <h1>Tuyển dụng có AI trợ lý hai chiều</h1>
+    <p class="muted">
+        Ứng viên biết mức độ phù hợp <em>trước khi</em> nộp CV. HR nhận danh sách đã xếp hạng và
+        bộ câu hỏi phỏng vấn gợi ý từ CV + JD. CV luôn được ẩn danh trước khi gửi lên AI.
+    </p>
 
-<p>
-    Khung Blazor Server dung xong o tuan 2. Giao dien that bat dau tu tuan 3
-    (dang ky / dang nhap / quen mat khau), bam theo API ngay trong tuan API xong.
-</p>
+    @if (Session.Current is { } user)
+    {
+        <p>Xin chào <strong>@user.FullName</strong>.</p>
+        <div class="actions">
+            @if (user.IsCandidate)
+            {
+                <a class="btn btn-primary" href="jobs">Tìm việc</a>
+                <a class="btn" href="me/cvs">Quản lý CV</a>
+                <a class="btn" href="me/applications">Hồ sơ đã nộp</a>
+            }
+            else if (user.IsHr)
+            {
+                <a class="btn btn-primary" href="hr/jobs">Tin tuyển dụng của tôi</a>
+                <a class="btn" href="hr/interviews">Lịch phỏng vấn</a>
+                <a class="btn" href="dashboard">Báo cáo</a>
+            }
+            else
+            {
+                <a class="btn btn-primary" href="admin/users">Quản lý tài khoản</a>
+                <a class="btn" href="dashboard">Báo cáo</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="actions">
+            <a class="btn btn-primary" href="jobs">Xem việc làm</a>
+            <a class="btn" href="register">Đăng ký</a>
+            <a class="btn" href="login">Đăng nhập</a>
+        </div>
+    }
+</section>
 
-<p>
-    Xem <code>docs/wireframes.md</code> de biet man hinh nao lam tuan nao.
-</p>
+<section class="score-legend">
+    <h2>Điểm phù hợp luôn kèm nguồn</h2>
+    <div class="legend-row">
+        <ScoreBadge Score="82" AdapterUsed="OpenAI" />
+        <span>AI chấm theo ngữ cảnh</span>
+    </div>
+    <div class="legend-row">
+        <ScoreBadge Score="74" AdapterUsed="Embedding" />
+        <span>So khớp ngữ nghĩa (khi AI chính lỗi)</span>
+    </div>
+    <div class="legend-row">
+        <ScoreBadge Score="61" AdapterUsed="Keyword" ShowHint="true" />
+    </div>
+</section>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Session.Changed += OnChanged;
+        await Session.EnsureLoadedAsync();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Session.Changed -= OnChanged;
+}

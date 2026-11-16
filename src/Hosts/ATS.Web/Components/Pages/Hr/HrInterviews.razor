@@ -1,0 +1,73 @@
+@page "/hr/interviews"
+@inherits SecurePage
+@inject InterviewApi Interviews
+
+<PageTitle>Lịch phỏng vấn · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <h1>Lịch phỏng vấn</h1>
+
+    <ErrorAlert Message="@_error" />
+
+    @if (_items is null)
+    {
+        <Spinner Text="Đang tải…" />
+    }
+    else if (_items.Count == 0)
+    {
+        <EmptyState Title="Chưa có buổi phỏng vấn nào">Hẹn phỏng vấn từ màn hồ sơ ứng viên.</EmptyState>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Thời gian</th>
+                    <th>Ứng viên</th>
+                    <th>Tin</th>
+                    <th>Hình thức</th>
+                    <th>Trạng thái</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items.OrderBy(i => i.ScheduledAt))
+                {
+                    <tr>
+                        <td>@Labels.DateTime(item.ScheduledAt)</td>
+                        <td><a href="hr/applications/@item.ApplicationId">@item.CandidateName</a></td>
+                        <td>@item.JobTitle</td>
+                        <td>@Labels.InterviewMode(item.Mode)</td>
+                        <td>
+                            <StatusPill Status="@item.Status" Kind="interview" />
+                            @if (!item.EmailSent)
+                            {
+                                <span class="text-danger small" title="Email mời chưa gửi được">✉ chưa gửi</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.Status == "Scheduled")
+                            {
+                                <a href="hr/interviews/@item.Id/evaluate?applicationId=@item.ApplicationId">Đánh giá</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</PageGuard>
+
+@code {
+    private List<InterviewListItemDto>? _items;
+    private string? _error;
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr];
+
+    protected override async Task OnAuthorizedAsync()
+    {
+        var result = await Interviews.ListMineAsync();
+        _items = result.Value ?? [];
+        _error = result.Error;
+    }
+}

@@ -1,0 +1,119 @@
+@page "/dashboard"
+@inherits SecurePage
+@inject ReportApi Reports
+
+<PageTitle>Báo cáo · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <h1>Báo cáo @(CurrentUser.IsAdmin ? "toàn hệ thống" : "tin của tôi")</h1>
+
+    <ErrorAlert Message="@_error" />
+
+    @if (_data is null)
+    {
+        @if (_error is null)
+        {
+            <Spinner Text="Đang tổng hợp…" />
+        }
+    }
+    else
+    {
+        <div class="stat-row">
+            <div class="stat"><span class="stat-value">@_data.TotalJobs</span><span class="stat-label">Tin tuyển dụng</span></div>
+            <div class="stat"><span class="stat-value">@_data.OpenJobs</span><span class="stat-label">Đang mở</span></div>
+            <div class="stat"><span class="stat-value">@_data.TotalApplications</span><span class="stat-label">Hồ sơ</span></div>
+            <div class="stat"><span class="stat-value">@Labels.Percent(_data.HiredRate)</span><span class="stat-label">Tỉ lệ nhận</span></div>
+        </div>
+
+        <div class="split">
+            <section class="panel">
+                <h2>Hồ sơ theo trạng thái</h2>
+                @foreach (var status in Labels.ApplicationFlow.Append("Rejected"))
+                {
+                    var count = StatusCount(status);
+                    <div class="bar-row">
+                        <span class="bar-label">@Labels.ApplicationStatus(status)</span>
+                        <span class="bar-track"><span class="bar-fill" style="width: @BarWidth(count, MaxStatusCount)"></span></span>
+                        <span class="bar-value">@count</span>
+                    </div>
+                }
+            </section>
+
+            <section class="panel">
+                <h2>AI &amp; ngân sách (RB2)</h2>
+                @if (_data.Ai is { } ai)
+                {
+                    <p>Tỉ lệ trúng cache: <strong>@Labels.Percent(ai.CacheHitRate)</strong>
+                        <span class="muted small">(@ai.CacheHits lượt trúng / @ai.CacheEntries kết quả lưu)</span></p>
+                    <p>Đã chấm: <strong>@ai.ScoredCount</strong> · Không chấm được: <strong>@ai.FailedCount</strong></p>
+                    <h3>Phân bố nguồn điểm</h3>
+                    @if (ai.ByAdapter is { Count: > 0 } byAdapter)
+                    {
+                        var total = Math.Max(1, byAdapter.Values.Sum());
+                        @foreach (var (adapter, count) in byAdapter.OrderByDescending(x => x.Value))
+                        {
+                            <div class="bar-row">
+                                <span class="bar-label">@ScoreBadge.SourceName(adapter)</span>
+                                <span class="bar-track"><span class="bar-fill" style="width: @BarWidth(count, total)"></span></span>
+                                <span class="bar-value">@Labels.Percent(count / (double)total)</span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="muted">Chưa có điểm nào.</p>
+                    }
+                }
+            </section>
+        </div>
+
+        <section class="panel">
+            <h2>Tin nhiều hồ sơ nhất</h2>
+            @if (_data.TopJobs is { Count: > 0 } top)
+            {
+                <ol>
+                    @foreach (var job in top)
+                    {
+                        <li>
+                            @if (CurrentUser.IsHr)
+                            {
+                                <a href="hr/jobs/@job.JobId/applications">@job.Title</a>
+                            }
+                            else
+                            {
+                                @job.Title
+                            }
+                            <span class="muted">— @job.ApplicationCount hồ sơ</span>
+                        </li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <p class="muted">Chưa có dữ liệu.</p>
+            }
+        </section>
+    }
+</PageGuard>
+
+@code {
+    private DashboardDto? _data;
+    private string? _error;
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr, Roles.Admin];
+
+    private int MaxStatusCount => Math.Max(1, _data?.ApplicationsByStatus?.Values.DefaultIfEmpty(0).Max() ?? 1);
+
+    protected override async Task OnAuthorizedAsync()
+    {
+        var result = await Reports.GetDashboardAsync();
+        _data = result.Value;
+        _error = result.Error;
+    }
+
+    private int StatusCount(string status)
+        => _data?.ApplicationsByStatus is { } map && map.TryGetValue(status, out var count) ? count : 0;
+
+    private static string BarWidth(int value, int max)
+        => $"{Math.Clamp(value * 100 / Math.Max(1, max), 0, 100)}%";
+}

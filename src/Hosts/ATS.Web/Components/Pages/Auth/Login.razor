@@ -1,0 +1,75 @@
+@page "/login"
+@inject AuthApi Auth
+@inject NavigationManager Nav
+
+<PageTitle>Đăng nhập · ATS</PageTitle>
+
+<section class="auth-card">
+    <h1>Đăng nhập</h1>
+
+    <EditForm Model="_form" OnValidSubmit="SubmitAsync" FormName="login">
+        <DataAnnotationsValidator />
+
+        <label>
+            Email
+            <InputText @bind-Value="_form.Email" type="email" autocomplete="username" />
+            <ValidationMessage For="() => _form.Email" />
+        </label>
+
+        <label>
+            Mật khẩu
+            <InputText @bind-Value="_form.Password" type="password" autocomplete="current-password" />
+            <ValidationMessage For="() => _form.Password" />
+        </label>
+
+        <ErrorAlert Message="@_error" />
+
+        <button type="submit" class="btn btn-primary" disabled="@_busy">
+            @if (_busy)
+            {
+                <Spinner />
+            }
+            Đăng nhập
+        </button>
+    </EditForm>
+
+    <div class="auth-links">
+        <a href="forgot-password">Quên mật khẩu?</a>
+        <a href="register">Chưa có tài khoản?</a>
+    </div>
+</section>
+
+@code {
+    private readonly LoginForm _form = new();
+    private bool _busy;
+    private string? _error;
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        var result = await Auth.LoginAsync(new LoginRequest(_form.Email.Trim(), _form.Password));
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.StatusCode == 401 ? "Email hoặc mật khẩu không đúng." : result.Error;
+            return;
+        }
+
+        Nav.NavigateTo(SafeReturnUrl());
+    }
+
+    /// <summary>Chi cho quay ve duong dan TRONG ung dung — chan open redirect qua ?returnUrl=https://...</summary>
+    private string SafeReturnUrl()
+    {
+        var url = ReturnUrl;
+        return string.IsNullOrWhiteSpace(url) || url.Contains("://", StringComparison.Ordinal) || url.StartsWith("//", StringComparison.Ordinal)
+            ? string.Empty
+            : url.TrimStart('/');
+    }
+}
