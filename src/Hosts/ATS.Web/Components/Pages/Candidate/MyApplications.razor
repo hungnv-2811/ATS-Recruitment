@@ -1,0 +1,61 @@
+@page "/me/applications"
+@inherits SecurePage
+@inject ApplicationApi Applications
+
+<PageTitle>Hồ sơ đã nộp · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <h1>Hồ sơ đã nộp</h1>
+
+    <ErrorAlert Message="@_error" />
+
+    @if (_items is null)
+    {
+        <Spinner Text="Đang tải…" />
+    }
+    else if (_items.Count == 0)
+    {
+        <EmptyState Title="Bạn chưa nộp hồ sơ nào"><a href="jobs">Xem việc làm đang tuyển</a></EmptyState>
+    }
+    else
+    {
+        @* Ung vien CHI xem — khong tu chuyen trang thai duoc (UV-5). *@
+        <ul class="card-list">
+            @foreach (var app in _items)
+            {
+                <li class="card">
+                    <div class="card-row">
+                        <a class="card-title" href="jobs/@app.JobId">@app.JobTitle</a>
+                    </div>
+                    <div class="muted">@app.CvName · nộp @Labels.Date(app.AppliedAt)</div>
+                    <div class="kv">
+                        <span class="kv-key">Trạng thái</span>
+                        <StatusTrack Status="@app.Status" />
+                    </div>
+                    <div class="kv">
+                        <span class="kv-key">Độ phù hợp</span>
+                        <ScoreBadge Score="app.AiScore" AdapterUsed="@app.AiAdapterUsed" ScreeningStatus="@app.ScreeningStatus" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(app.AiSummary))
+                    {
+                        <p class="muted small">@app.AiSummary</p>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</PageGuard>
+
+@code {
+    private List<ApplicationDto>? _items;
+    private string? _error;
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Candidate];
+
+    protected override async Task OnAuthorizedAsync()
+    {
+        var result = await Applications.ListMineAsync();
+        _items = result.Value ?? [];
+        _error = result.Error;
+    }
+}

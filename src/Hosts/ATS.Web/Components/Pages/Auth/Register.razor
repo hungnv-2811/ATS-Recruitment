@@ -1,0 +1,83 @@
+@page "/register"
+@inject AuthApi Auth
+@inject NavigationManager Nav
+
+<PageTitle>Đăng ký · ATS</PageTitle>
+
+<section class="auth-card">
+    <h1>Tạo tài khoản</h1>
+
+    <EditForm Model="_form" OnValidSubmit="SubmitAsync" FormName="register">
+        <DataAnnotationsValidator />
+
+        <fieldset class="role-choice">
+            <legend>Bạn là</legend>
+            <InputRadioGroup @bind-Value="_form.Role">
+                <label><InputRadio Value="@Roles.Candidate" /> Ứng viên</label>
+                <label><InputRadio Value="@Roles.Hr" /> Nhà tuyển dụng</label>
+            </InputRadioGroup>
+        </fieldset>
+
+        <label>
+            Họ tên
+            <InputText @bind-Value="_form.FullName" autocomplete="name" />
+            <ValidationMessage For="() => _form.FullName" />
+        </label>
+
+        <label>
+            Email
+            <InputText @bind-Value="_form.Email" type="email" autocomplete="email" />
+            <ValidationMessage For="() => _form.Email" />
+        </label>
+
+        <label>
+            Mật khẩu
+            <InputText @bind-Value="_form.Password" type="password" autocomplete="new-password" />
+            <ValidationMessage For="() => _form.Password" />
+        </label>
+
+        <label>
+            Nhập lại mật khẩu
+            <InputText @bind-Value="_form.ConfirmPassword" type="password" autocomplete="new-password" />
+            <ValidationMessage For="() => _form.ConfirmPassword" />
+        </label>
+
+        <ErrorAlert Message="@_error" />
+
+        <button type="submit" class="btn btn-primary" disabled="@_busy">
+            @if (_busy)
+            {
+                <Spinner />
+            }
+            Đăng ký
+        </button>
+    </EditForm>
+
+    <div class="auth-links">
+        <a href="login">Đã có tài khoản? Đăng nhập</a>
+    </div>
+</section>
+
+@code {
+    private readonly RegisterForm _form = new();
+    private bool _busy;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        var result = await Auth.RegisterAsync(new RegisterRequest(
+            _form.Email.Trim(), _form.Password, _form.FullName.Trim(), _form.Role));
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.StatusCode == 409 ? "Email này đã được đăng ký." : result.Error;
+            return;
+        }
+
+        Nav.NavigateTo(_form.Role == Roles.Hr ? "hr/jobs" : "me/cvs");
+    }
+}

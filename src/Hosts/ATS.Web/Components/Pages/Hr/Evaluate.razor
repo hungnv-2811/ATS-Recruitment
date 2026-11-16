@@ -1,0 +1,118 @@
+@page "/hr/interviews/{InterviewId:guid}/evaluate"
+@inherits SecurePage
+@inject InterviewApi Interviews
+@inject AiApi Ai
+
+<PageTitle>Đánh giá phỏng vấn · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    @if (ApplicationId is { } appId)
+    {
+        <a href="hr/applications/@appId">← Hồ sơ</a>
+    }
+    <h1>Đánh giá sau phỏng vấn</h1>
+
+    @if (_questions is { Count: > 0 })
+    {
+        <details class="panel">
+            <summary>Bộ câu hỏi đã chuẩn bị (@_questions.Count)</summary>
+            <ol>
+                @foreach (var q in _questions)
+                {
+                    <li><span class="muted small">@Labels.QuestionCategory(q.Category)</span> @q.Question</li>
+                }
+            </ol>
+        </details>
+    }
+
+    @if (_done)
+    {
+        @* De xuat KHONG tu chuyen trang thai (HR-5) — HR van phai bam o man ho so. *@
+        <div class="alert alert-success">Đã lưu đánh giá. Đề xuất không tự đổi trạng thái hồ sơ — hãy chuyển trạng thái ở màn hồ sơ.</div>
+        @if (ApplicationId is { } id)
+        {
+            <a class="btn btn-primary" href="hr/applications/@id">Về hồ sơ</a>
+        }
+    }
+    else
+    {
+        <EditForm Model="_form" OnValidSubmit="SaveAsync" FormName="evaluation" class="form-grid">
+            <DataAnnotationsValidator />
+
+            <fieldset class="span-2">
+                <legend>Mức độ</legend>
+                <div class="star-input" role="radiogroup" aria-label="Mức độ">
+                    @for (var i = 1; i <= 5; i++)
+                    {
+                        var value = i;
+                        <button type="button" class="star-button @(value <= _form.Rating ? "on" : "")" aria-label="@value sao" @onclick="() => _form.Rating = value">★</button>
+                    }
+                </div>
+                <ValidationMessage For="() => _form.Rating" />
+            </fieldset>
+
+            <label class="span-2">
+                Nhận xét
+                <InputTextArea @bind-Value="_form.Comment" rows="5" />
+                <ValidationMessage For="() => _form.Comment" />
+            </label>
+
+            <fieldset class="span-2">
+                <legend>Đề xuất</legend>
+                <InputRadioGroup @bind-Value="_form.Recommendation">
+                    <label class="inline"><InputRadio Value="@("Hire")" /> Nhận</label>
+                    <label class="inline"><InputRadio Value="@("Consider")" /> Cân nhắc</label>
+                    <label class="inline"><InputRadio Value="@("Reject")" /> Từ chối</label>
+                </InputRadioGroup>
+            </fieldset>
+
+            <ErrorAlert Message="@_error" />
+
+            <div class="span-2">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <Spinner />
+                    }
+                    Lưu đánh giá
+                </button>
+            </div>
+        </EditForm>
+    }
+</PageGuard>
+
+@code {
+    private readonly EvaluationForm _form = new();
+    private List<InterviewQuestionDto>? _questions;
+    private bool _saving;
+    private bool _done;
+    private string? _error;
+
+    [Parameter]
+    public Guid InterviewId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public Guid? ApplicationId { get; set; }
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr];
+
+    protected override async Task OnAuthorizedAsync()
+        => _questions = (await Ai.GetQuestionsAsync(InterviewId)).Value;
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        var result = await Interviews.EvaluateAsync(
+            InterviewId, new SubmitEvaluationRequest(_form.Rating, _form.Comment.Trim(), _form.Recommendation));
+        _saving = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.StatusCode == 409 ? "Buổi phỏng vấn này đã có đánh giá." : result.Error;
+            return;
+        }
+
+        _done = true;
+    }
+}

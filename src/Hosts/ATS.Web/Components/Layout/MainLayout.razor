@@ -2,15 +2,33 @@
 
 <div class="page">
     <header class="topbar">
-        <span class="brand">ATS Recruitment</span>
+        <a class="brand" href="">ATS Recruitment</a>
         <NavMenu />
     </header>
 
     <main class="content">
-        @Body
+        <ErrorBoundary @ref="_errorBoundary">
+            <ChildContent>
+                @Body
+            </ChildContent>
+            <ErrorContent>
+                <div class="alert alert-error" role="alert">
+                    Đã có lỗi khi hiển thị trang này.
+                    <button type="button" class="link-button" @onclick="Recover">Thử lại</button>
+                </div>
+            </ErrorContent>
+        </ErrorBoundary>
     </main>
 
     <footer class="footer">
-        Do an Chuyen de tong hop (607708) — Nhom 3
+        Đồ án Chuyên đề tổng hợp (607708) — Nhóm 3
     </footer>
 </div>
+
+@code {
+    private ErrorBoundary? _errorBoundary;
+
+    protected override void OnParametersSet() => _errorBoundary?.Recover();
+
+    private void Recover() => _errorBoundary?.Recover();
+}

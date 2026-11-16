@@ -1,0 +1,17 @@
+<span class="pill pill-@Status?.ToLowerInvariant()">@Text</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string? Status { get; set; }
+
+    /// <summary>"application" (mac dinh) | "job" | "interview".</summary>
+    [Parameter]
+    public string Kind { get; set; } = "application";
+
+    private string Text => Kind switch
+    {
+        "job" => Labels.JobStatus(Status),
+        "interview" => Labels.InterviewStatus(Status),
+        _ => Labels.ApplicationStatus(Status),
+    };
+}

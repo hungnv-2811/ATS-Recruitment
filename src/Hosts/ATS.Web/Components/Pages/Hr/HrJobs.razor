@@ -1,0 +1,88 @@
+@page "/hr/jobs"
+@inherits SecurePage
+@inject JobApi JobsApi
+
+<PageTitle>Tin của tôi · ATS</PageTitle>
+
+<PageGuard State="Guard">
+    <div class="page-head">
+        <h1>Tin của tôi</h1>
+        <a class="btn btn-primary" href="hr/jobs/new">+ Đăng tin mới</a>
+    </div>
+
+    <ErrorAlert Message="@_error" OnDismiss="() => _error = null" />
+
+    @if (_jobs is null)
+    {
+        <Spinner Text="Đang tải…" />
+    }
+    else if (_jobs.Count == 0)
+    {
+        <EmptyState Title="Bạn chưa đăng tin nào"><a href="hr/jobs/new">Đăng tin đầu tiên</a></EmptyState>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Tin</th>
+                    <th>Trạng thái</th>
+                    <th class="num">Hồ sơ</th>
+                    <th>Đăng</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var job in _jobs)
+                {
+                    <tr>
+                        <td><a href="hr/jobs/@job.Id/applications">@job.Title</a><div class="muted small">@job.Location</div></td>
+                        <td><StatusPill Status="@job.Status" Kind="job" /></td>
+                        <td class="num">@job.ApplicationCount</td>
+                        <td>@Labels.Date(job.PostedAt)</td>
+                        <td class="row-actions">
+                            <a href="hr/jobs/@job.Id/applications">Ứng viên</a>
+                            <a href="hr/jobs/@job.Id/edit">Sửa</a>
+                            @if (job.Status == "Draft")
+                            {
+                                <button type="button" class="link-button" @onclick="() => PublishAsync(job)">Đăng</button>
+                            }
+                            @if (job.Status == "Open")
+                            {
+                                <button type="button" class="link-button text-danger" @onclick="() => CloseAsync(job)">Đóng tin</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</PageGuard>
+
+@code {
+    private List<JobDto>? _jobs;
+    private string? _error;
+
+    protected override IReadOnlyCollection<string> AllowedRoles => [Roles.Hr];
+
+    protected override Task OnAuthorizedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await JobsApi.ListMineAsync();
+        _jobs = result.Value ?? [];
+        _error ??= result.Error;
+    }
+
+    private async Task PublishAsync(JobDto job)
+    {
+        _error = (await JobsApi.PublishAsync(job.Id)).Error;
+        await LoadAsync();
+    }
+
+    private async Task CloseAsync(JobDto job)
+    {
+        _error = (await JobsApi.CloseAsync(job.Id)).Error;
+        await LoadAsync();
+    }
+}
