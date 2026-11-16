@@ -41,6 +41,11 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      # Kiểm định dạng (whitespace, style, analyzer) trước khi build: lỗi kiểu này
+      # rẻ nhất khi bắt ở CI, không phải ở buổi review. Sửa tại máy: `dotnet format`.
+      - name: Kiểm định dạng code
+        run: dotnet format --verify-no-changes --no-restore
+
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
