@@ -16,20 +16,22 @@ theo hoạt động thật trên GitHub.
 
 ## Tiến độ chung theo tuần
 
-Mốc của từng tuần lấy từ [`weekly-plan.md`](../weekly-plan.md). ✅ = xong.
+Mốc của từng tuần lấy từ [`weekly-plan.md`](../weekly-plan.md).
 
-| Tuần | Mốc | TV1 — Hoạt | TV2 — Tuấn Anh | TV3 — Hùng | TV4 — Tiền | |
+| Tuần | Ngày | Mốc | TV1 — Hoạt | TV2 — Tuấn Anh | TV3 — Hùng | TV4 — Tiền |
 |---|---|---|---|---|---|---|
-| 1 | Chốt phạm vi & thiết kế | `architecture.md`, `database-design.md` | `use-cases.md`, `contracts.md` | Wireframe (`wireframes.md`) | `ai-integration.md`, prompt v1 | ✅ |
-| 2 | Dựng khung | `.sln` 18 project, Persistence, compose, CI | API skeleton, Swagger, JWT | Blazor skeleton | ArchitectureTests (5 quy tắc) | ✅ |
-| 3 | Identity | Gửi email SMTP / MailHog | Đăng ký, đăng nhập, quên mật khẩu, JWT | Chốt contract tuần 3; UI đăng nhập/đăng ký/quên mật khẩu | Review PR | ✅ |
-| 4 | Tin + nhiều CV | Lưu file CV, trích text PDF/DOCX | Job, CV, API | UI quản lý CV, danh sách tin, quản lý tin của HR | Review PR | ✅ |
-| 5 | Ứng tuyển + ẩn danh | Review EF config | Nộp đơn (state machine), `IRecruitmentQueries` | UI chi tiết tin + ứng tuyển, lịch sử | Mở rộng ẩn danh PII + test | ✅ |
-| 6 | AI với Fake | Worker host | Danh sách xếp hạng cho HR | UI xếp hạng + tiến độ sàng lọc, chi tiết hồ sơ | Entity AI, Fake adapter, hàng đợi Redis, xử lý hàng đợi | ✅ |
-| 7 | Adapter AI thật | Cấu hình AI chung api/worker | Hỗ trợ tích hợp AI | Nhãn nguồn điểm, UI xem độ phù hợp | OpenAI + Keyword, pipeline, cache, hạn mức | ✅ |
-| 8 | Phỏng vấn + email | Biến môi trường, CI `dotnet format` | Phỏng vấn, đánh giá, email ngoài transaction | UI hẹn phỏng vấn + câu hỏi, đánh giá | Sinh câu hỏi (OpenAI + Template) | ✅ |
-| 9 | Tuần đệm | Dashboard (SQL) | Quản trị tài khoản | Chặn route theo vai, dashboard, quản trị | Embedding, +5 quy tắc kiến trúc, test API AI | ✅ |
-| 10 | Tích hợp & hoàn thiện | Migration, seed demo, kiểm Postgres thật | Test DDL, cập nhật contract | Merge, chạy end-to-end, sửa lỗi, thu hồi JWT, test Postgres, khảo sát | 9 test end-to-end | ✅ |
+| 1 | 07/09 – 13/09 | Khảo sát & thiết kế | Khảo sát hệ thống tương tự + công nghệ; `architecture.md`, `database-design.md` | Khảo sát hệ thống tương tự, phiếu HR; `use-cases.md`, `contracts.md` | Phiếu ứng viên; `wireframes.md` | Khảo sát công nghệ AI; `ai-integration.md` |
+| 2 | 14/09 – 20/09 | Dựng khung | `.sln` 18 project, Persistence, compose, CI | API skeleton, Swagger, JWT | Blazor skeleton | ArchitectureTests (5 quy tắc), `AnonymizedCv` |
+| 3 | 21/09 – 27/09 | Identity | Gửi email SMTP / MailHog | Đăng ký, đăng nhập, quên mật khẩu, JWT | Chốt contract; UI đăng nhập/đăng ký | Tách kỹ năng từ JD; review PR |
+| 4 | 28/09 – 04/10 | Tin + nhiều CV | Lưu file CV, trích text PDF/DOCX | Job, CV, tạo hồ sơ khi đăng ký | UI CV, danh sách tin, quản lý tin | Mở rộng ẩn danh PII + test |
+| 5 | 05/10 – 11/10 | Ứng tuyển + ẩn danh | Khung Worker; review EF | Nộp đơn (state machine), `IRecruitmentQueries` | UI ứng tuyển, lịch sử | Entity AI, EF config, quy tắc kiến trúc |
+| 6 | 12/10 – 18/10 | AI với Fake | Vòng lặp Worker đọc hàng đợi | Danh sách xếp hạng, chi tiết hồ sơ | UI xếp hạng + tiến độ, chi tiết hồ sơ | Fake adapter, hàng đợi Redis, xử lý hàng đợi |
+| 7 | 19/10 – 25/10 | Adapter AI thật | Cấu hình AI chung api/worker | Test nộp đơn + hỗ trợ tích hợp AI | Nhãn nguồn điểm, UI xem độ phù hợp | OpenAI + Keyword, pipeline, cache, hạn mức |
+| 8 | 26/10 – 01/11 | Phỏng vấn + email | Biến môi trường, CI `dotnet format` | Phỏng vấn, đánh giá, email ngoài transaction | UI hẹn phỏng vấn + câu hỏi, đánh giá | Sinh câu hỏi (OpenAI + Template) |
+| 9 | 02/11 – 08/11 | Tuần đệm | Dashboard (SQL) | Quản trị tài khoản | Chặn route theo vai, dashboard, làm lại giao diện | Embedding, +5 quy tắc kiến trúc, test API AI |
+| 10 | 09/11 – 15/11 | Tích hợp & hoàn thiện | Migration, seed demo, kiểm Postgres thật | Test DDL, cập nhật contract, review | Merge, end-to-end, sửa lỗi, thu hồi JWT, test Postgres | 9 test end-to-end, review |
+
+Trạng thái: tất cả xong, trừ **khảo sát người dùng** (tuần 1) — phiếu đã soạn, kết quả chưa thu.
 
 ## Kết quả kiểm thử cuối kỳ
 

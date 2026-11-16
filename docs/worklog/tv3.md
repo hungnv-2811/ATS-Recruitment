@@ -9,13 +9,12 @@
 | **Project sở hữu** | `ATS.Web` |
 
 > **Cách đọc:** mỗi tuần một mục, tuần mới nhất ở trên. Việc được xếp vào tuần theo
-> [`weekly-plan.md`](../weekly-plan.md). Các ô `dd/mm`, `#—` (Issue/PR) và `~—h` (thời gian)
-> mỗi người **tự điền theo hoạt động thật** của mình trên GitHub.
-
+> [`weekly-plan.md`](../weekly-plan.md); tuần 1 bắt đầu 07/09/2026. Các ô `#—` (Issue/PR) và
+> `~—h` (thời gian) mỗi người **tự điền theo hoạt động thật** của mình trên GitHub.
 
 ---
 
-## Tuần 10 (dd/mm – dd/mm) — Tích hợp, kiểm thử trên hệ thống thật, hoàn thiện
+## Tuần 10 (09/11 – 15/11) — Tích hợp, kiểm thử trên hệ thống thật, hoàn thiện
 
 **Chức năng chung của tuần:** Merge đủ các nhánh, migration + seed, chạy `docker compose` end-to-end, sửa lỗi phát hiện.
 
@@ -23,13 +22,9 @@
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Merge 4 nhánh vào `nvhung`, chạy CI trong WSL, chạy `docker compose` end-to-end theo kịch bản demo | #— | #— | Xong |
-| Sửa lỗi trang trắng trong container (`blazor.web.js` thiếu khi publish) | #— | #— | Xong |
-| Sửa nộp đơn trùng đồng thời → 409 thay vì 500 (file của TV2, cần TV2 review) | #— | #— | Xong |
-| Thu hồi JWT khi khoá tài khoản/đổi vai/đổi mật khẩu bằng security stamp (file của TV2, cần TV2 review) | #— | #— | Xong |
-| Email có dấu + giờ Việt Nam (file của TV2); nhãn “điểm cũ, đang chấm lại” | #— | #— | Xong |
-| Bộ test trên Postgres thật + service Postgres trong CI (file của TV1/TV4, cần review) | #— | #— | Xong |
-| Làm lại giao diện (topbar, trang chủ, thẻ, bảng, form); tài liệu khảo sát `docs/khao-sat.md` | #— | #— | Xong |
+| Merge 4 nhánh, CI trong WSL, `docker compose` end-to-end; sửa trang trắng trong container (`blazor.web.js`) | #— | #— | Xong |
+| Nộp đơn trùng đồng thời → 409; thu hồi JWT bằng security stamp; email có dấu + giờ VN (chờ TV2 review) | #— | #— | Xong |
+| Bộ test trên Postgres thật + service Postgres trong CI (chờ TV1/TV4 review); README kịch bản demo | #— | #— | Xong |
 
 ### PR đã review của người khác
 
@@ -39,7 +34,7 @@
 
 ### Vướng mắc
 
-- Máy Windows bật Smart App Control chặn `dotnet test` → chạy test trong WSL Ubuntu.
+- Windows Smart App Control chặn `dotnet test` → chạy test trong WSL Ubuntu.
 
 ### Kế hoạch tuần sau
 
@@ -49,17 +44,16 @@
 
 ---
 
-## Tuần 9 (dd/mm – dd/mm) — Tuần đệm — Embedding, báo cáo, phân quyền UI
+## Tuần 9 (02/11 – 08/11) — Tuần đệm — Embedding, báo cáo, phân quyền UI
 
-**Chức năng chung của tuần:** Trả nợ tuần 7–8, thêm Embedding + dashboard, chặn route theo vai.
+**Chức năng chung của tuần:** Trả nợ tuần 7–8, thêm Embedding + dashboard, chặn route theo vai, hoàn thiện giao diện.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| `SecurePage`: chặn route theo vai (sai vai → 403, chưa đăng nhập → /login) | #— | #— | Xong |
-| HR-6 dashboard, màn quản trị tài khoản, giao diện co giãn màn hình hẹp | #— | #— | Xong |
-| `wireframes.md` mục 5 (route thật), README | #— | #— | Xong |
+| `SecurePage`: chặn route theo vai (sai vai → 403); HR-6 dashboard; quản trị tài khoản | #— | #— | Xong |
+| Làm lại giao diện (topbar, trang chủ, thẻ, bảng, form), co giãn màn hình hẹp; nhãn “điểm cũ, đang chấm lại” | #— | #— | Xong |
 
 ### PR đã review của người khác
 
@@ -73,13 +67,13 @@
 
 ### Kế hoạch tuần sau
 
-- Merge 4 nhánh vào `nvhung`, chạy CI trong WSL, chạy `docker compose` end-to-end theo kịch bản demo
+- Merge 4 nhánh, CI trong WSL, `docker compose` end-to-end; sửa trang trắng trong container (`blazor.web.js`)
 
 **Thời gian bỏ ra:** ~—h
 
 ---
 
-## Tuần 8 (dd/mm – dd/mm) — Phỏng vấn + gợi ý câu hỏi + email
+## Tuần 8 (26/10 – 01/11) — Phỏng vấn + gợi ý câu hỏi + email
 
 **Chức năng chung của tuần:** HR hẹn phỏng vấn, AI gợi ý câu hỏi, MailHog nhận thư; SMTP lỗi vẫn lưu buổi phỏng vấn.
 
@@ -87,7 +81,7 @@
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| HR-4 hẹn phỏng vấn + gợi ý câu hỏi (sửa/xoá/thêm tay) + nút gửi lại lời mời | #— | #— | Xong |
+| HR-4 hẹn phỏng vấn + gợi ý câu hỏi (sửa/xoá/thêm tay) + gửi lại lời mời | #— | #— | Xong |
 | HR-5 nhập đánh giá; lịch phỏng vấn của HR | #— | #— | Xong |
 
 ### PR đã review của người khác
@@ -102,22 +96,22 @@
 
 ### Kế hoạch tuần sau
 
-- `SecurePage`: chặn route theo vai (sai vai → 403, chưa đăng nhập → /login)
+- `SecurePage`: chặn route theo vai (sai vai → 403); HR-6 dashboard; quản trị tài khoản
 
 **Thời gian bỏ ra:** ~—h
 
 ---
 
-## Tuần 7 (dd/mm – dd/mm) — Adapter AI thật — chấm điểm nhiều tầng, cache, hạn mức
+## Tuần 7 (19/10 – 25/10) — Adapter AI thật — nhiều tầng, cache, hạn mức
 
-**Chức năng chung của tuần:** Pipeline thật có fallback; preview lần 2 trúng cache, không trừ lượt.
+**Chức năng chung của tuần:** Pipeline thật có fallback; xem độ phù hợp lần 2 trúng cache, không trừ lượt.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| `ScoreBadge` dùng chung: điểm luôn kèm nhãn nguồn (AI / Ngữ nghĩa / Từ khoá); cảnh báo bảng trộn nguồn | #— | #— | Xong |
-| UV-4 xem độ phù hợp: số lượt còn lại, huỷ được, hết lượt vẫn ứng tuyển được, “đã xem trước đó” | #— | #— | Xong |
+| `ScoreBadge` dùng chung: điểm luôn kèm nhãn nguồn; cảnh báo bảng trộn nguồn | #— | #— | Xong |
+| UV-4 xem độ phù hợp: lượt còn lại, huỷ được, hết lượt vẫn ứng tuyển, “đã xem trước đó” | #— | #— | Xong |
 
 ### PR đã review của người khác
 
@@ -131,13 +125,13 @@
 
 ### Kế hoạch tuần sau
 
-- HR-4 hẹn phỏng vấn + gợi ý câu hỏi (sửa/xoá/thêm tay) + nút gửi lại lời mời
+- HR-4 hẹn phỏng vấn + gợi ý câu hỏi (sửa/xoá/thêm tay) + gửi lại lời mời
 
 **Thời gian bỏ ra:** ~—h
 
 ---
 
-## Tuần 6 (dd/mm – dd/mm) — AiScreening với FakeAdapter (end-to-end)
+## Tuần 6 (12/10 – 18/10) — AiScreening với FakeAdapter (end-to-end)
 
 **Chức năng chung của tuần:** Nộp đơn → hàng đợi → Worker → điểm lưu DB, dùng Fake để không tốn tiền.
 
@@ -160,13 +154,13 @@
 
 ### Kế hoạch tuần sau
 
-- `ScoreBadge` dùng chung: điểm luôn kèm nhãn nguồn (AI / Ngữ nghĩa / Từ khoá); cảnh báo bảng trộn nguồn
+- `ScoreBadge` dùng chung: điểm luôn kèm nhãn nguồn; cảnh báo bảng trộn nguồn
 
 **Thời gian bỏ ra:** ~—h
 
 ---
 
-## Tuần 5 (dd/mm – dd/mm) — Ứng tuyển + ẩn danh CV
+## Tuần 5 (05/10 – 11/10) — Ứng tuyển + ẩn danh CV
 
 **Chức năng chung của tuần:** Ứng viên nộp CV vào tin và thấy trong lịch sử; CV được ẩn danh trước khi tới AI.
 
@@ -194,7 +188,7 @@
 
 ---
 
-## Tuần 4 (dd/mm – dd/mm) — Recruitment — tin tuyển dụng, nhiều CV
+## Tuần 4 (28/09 – 04/10) — Recruitment — tin tuyển dụng, nhiều CV
 
 **Chức năng chung của tuần:** Ứng viên upload nhiều CV, HR đăng tin, cả hai xem được.
 
@@ -223,7 +217,7 @@
 
 ---
 
-## Tuần 3 (dd/mm – dd/mm) — Identity — đăng ký/đăng nhập 2 vai, quên mật khẩu
+## Tuần 3 (21/09 – 27/09) — Identity — đăng ký/đăng nhập 2 vai, quên mật khẩu
 
 **Chức năng chung của tuần:** Đăng ký ứng viên → đăng nhập → nhận JWT → gọi `/api/me`; quên mật khẩu qua MailHog.
 
@@ -231,9 +225,9 @@
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Chốt contract chi tiết tuần 3 (`contracts.md` mục 8) và nối sẵn các module vào `Program.cs` để 4 người làm song song | #— | #— | Xong |
-| `ApiClient` (gắn JWT, đổi lỗi API thành câu tiếng Việt) + `AuthSession` (JWT trong `ProtectedLocalStorage`) | #— | #— | Xong |
-| UV-1: đăng nhập, đăng ký 2 vai, quên mật khẩu (luôn cùng một câu), đặt lại mật khẩu | #— | #— | Xong |
+| Chốt contract chi tiết tuần 3 (`contracts.md` mục 8), nối sẵn các module vào `Program.cs` | #— | #— | Xong |
+| `ApiClient` (gắn JWT, đổi lỗi API thành câu tiếng Việt) + `AuthSession` | #— | #— | Xong |
+| UV-1: đăng nhập, đăng ký 2 vai, quên mật khẩu, đặt lại mật khẩu | #— | #— | Xong |
 
 ### PR đã review của người khác
 
@@ -253,21 +247,16 @@
 
 ---
 
-## Tuần 2 (dd/mm – dd/mm) — Dựng khung
+## Tuần 2 (14/09 – 20/09) — Dựng khung
 
-**Chức năng chung của tuần:** `docker compose up` chạy được, ArchitectureTests xanh.
+**Chức năng chung của tuần:** Clone repo, `docker compose up` thấy API xanh, ArchitectureTests pass.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| `ATS.Web` Blazor Server skeleton: `App`, `Routes`, `MainLayout`, `NavMenu`, `Home` | #— | #— | Xong |
-| `HttpClient` đọc `ApiBaseUrl` từ config — Web **không** reference project module nào | #— | #— | Xong |
-| CSS nền: biến màu + dark mode theo `prefers-color-scheme` | #— | #— | Xong |
-
-### Vướng mắc
-
-- Chưa có API thật để gọi. Từ tuần 3 bám theo API ngay trong tuần API xong, không dồn cuối kỳ.
+| `ATS.Web` Blazor Server skeleton: layout, routing, `HttpClient` đọc `ApiBaseUrl` | #— | #— | Xong |
+| CSS nền: biến màu + dark mode | #— | #— | Xong |
 
 ### PR đã review của người khác
 
@@ -277,25 +266,26 @@
 
 ### Vướng mắc
 
--
+- —
 
 ### Kế hoạch tuần sau
 
--
+- Chốt contract chi tiết tuần 3 (`contracts.md` mục 8), nối sẵn các module vào `Program.cs`
 
 **Thời gian bỏ ra:** ~—h
 
 ---
 
-## Tuần 1 (dd/mm – dd/mm) — Khởi động
+## Tuần 1 (07/09 – 13/09) — Khảo sát, chốt phạm vi & thiết kế
 
-**Chức năng chung của tuần:** phân tích yêu cầu, chốt phạm vi & kiến trúc, khởi tạo repo.
+**Chức năng chung của tuần:** Khảo sát hệ thống tương tự, người dùng, công nghệ; tài liệu thiết kế đóng, cả nhóm thống nhất ranh giới module và API.
 
 ### Việc đã làm
 
 | Việc | Issue | PR | Trạng thái |
 |---|---|---|---|
-| Wireframe các màn hình, chọn thư viện UI | #— | #— | Chưa bắt đầu |
+| Phiếu khảo sát ứng viên (U1–U10) — `khao-sat.md` mục 2.2 | #— | #— | Đang làm |
+| Wireframe ứng viên & HR, bốn quy tắc chung cho mọi màn hình — `wireframes.md` | #— | #— | Xong |
 
 ### PR đã review của người khác
 
@@ -305,11 +295,11 @@
 
 ### Vướng mắc
 
--
+- Phiếu ứng viên mới soạn, chưa đủ 30 phiếu trả lời.
 
 ### Kế hoạch tuần sau
 
--
+- `ATS.Web` Blazor Server skeleton: layout, routing, `HttpClient` đọc `ApiBaseUrl`
 
 **Thời gian bỏ ra:** ~—h
 
