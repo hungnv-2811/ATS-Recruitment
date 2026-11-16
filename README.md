@@ -107,6 +107,7 @@ ATS-Recruitment/
 
 | File | Nội dung |
 |---|---|
+| [`docs/khao-sat.md`](docs/khao-sat.md) | Khảo sát: hệ thống tương tự, phiếu hỏi ứng viên/HR, lựa chọn công nghệ |
 | [`docs/architecture.md`](docs/architecture.md) | Kiến trúc: ràng buộc, 3 quyết định lớn, đánh đổi |
 | [`docs/use-cases.md`](docs/use-cases.md) | Tác nhân, use case, sơ đồ, trạng thái |
 | [`docs/wireframes.md`](docs/wireframes.md) | Bố cục & hành vi từng màn hình, bản đồ màn hình → tuần |
@@ -116,6 +117,7 @@ ATS-Recruitment/
 | [`docs/weekly-plan.md`](docs/weekly-plan.md) | Kế hoạch 10 tuần theo milestone |
 | [`docs/team-assignment.md`](docs/team-assignment.md) | Phân công 4 thành viên theo module |
 | [`docs/code-review.md`](docs/code-review.md) | Checklist review |
+| [`docs/worklog/`](docs/worklog/README.md) | Báo cáo công việc hàng tuần của từng thành viên + bảng tiến độ chung |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Nhánh, commit, PR |
 
 ## 7. Chạy thử
