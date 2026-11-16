@@ -1,18 +1,46 @@
 ﻿:root {
     --bg: #ffffff;
+    --surface: #f8f9fb;
     --fg: #1a1a1a;
     --muted: #6b7280;
     --border: #e5e7eb;
     --accent: #2563eb;
+    --accent-fg: #ffffff;
+    --success: #15803d;
+    --danger: #b91c1c;
+    --warning-bg: #fef3c7;
+    --warning-fg: #92400e;
+    --info-bg: #e0ecff;
+    --error-bg: #fee2e2;
+    --success-bg: #dcfce7;
+
+    /* Ba thang diem, ba mau — khong bao gio hien con so tran (wireframes muc 0.1). */
+    --score-ai: #15803d;
+    --score-semantic: #2563eb;
+    --score-keyword: #b45309;
+    --score-fake: #6b7280;
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #111317;
+        --surface: #181b21;
         --fg: #e8e8e8;
         --muted: #9aa1ab;
         --border: #2a2f37;
         --accent: #7aa2f7;
+        --accent-fg: #0b0d10;
+        --success: #4ade80;
+        --danger: #f87171;
+        --warning-bg: #3b2f0b;
+        --warning-fg: #fcd34d;
+        --info-bg: #172338;
+        --error-bg: #3a1414;
+        --success-bg: #12301c;
+        --score-ai: #4ade80;
+        --score-semantic: #7aa2f7;
+        --score-keyword: #fbbf24;
+        --score-fake: #9aa1ab;
     }
 }
 
@@ -26,25 +54,246 @@ body {
     line-height: 1.6;
 }
 
+a { color: var(--accent); }
+
+h1 { font-size: 1.6rem; margin: 0.5rem 0 1rem; }
+h2 { font-size: 1.15rem; margin: 0 0 0.75rem; }
+h3 { font-size: 1rem; margin: 1rem 0 0.5rem; }
+
+/* ---- Khung trang ---- */
 .page { display: flex; flex-direction: column; min-height: 100vh; }
 
 .topbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 1.5rem;
     padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border);
 }
 
-.brand { font-weight: 600; }
+.brand { font-weight: 700; color: var(--fg); text-decoration: none; }
 
+.nav { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; flex: 1; }
 .nav a { color: var(--accent); text-decoration: none; }
+.nav a.active { font-weight: 600; text-decoration: underline; }
+.nav-user { margin-left: auto; color: var(--muted); font-size: 0.875rem; }
 
-.content { flex: 1; padding: 1rem; max-width: 70rem; width: 100%; margin: 0 auto; }
+.content { flex: 1; padding: 1rem; max-width: 72rem; width: 100%; margin: 0 auto; }
 
 .footer {
     padding: 1rem;
     border-top: 1px solid var(--border);
     color: var(--muted);
     font-size: 0.875rem;
+}
+
+.page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.page-head h1, .page-head h2 { margin-bottom: 0.5rem; }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.pre-wrap { white-space: pre-wrap; }
+.hidden { display: none; }
+.clamp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40rem; }
+
+/* ---- Nut ---- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--fg);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: none;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-lg { padding: 0.65rem 1.4rem; font-size: 1.05rem; }
+
+.link-button {
+    background: none;
+    border: none;
+    padding: 0 0.25rem;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.actions, .toolbar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 0.75rem 0; }
+.row-actions { display: flex; gap: 0.75rem; white-space: nowrap; }
+
+/* ---- Form ---- */
+label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 500; }
+label.inline, label.checkbox { flex-direction: row; align-items: center; gap: 0.4rem; font-weight: 400; }
+fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; }
+legend { padding: 0 0.25rem; font-weight: 500; }
+
+input[type=text], input[type=email], input[type=password], input[type=search],
+input[type=datetime-local], select, textarea {
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+}
+
+.validation-message { color: var(--danger); font-size: 0.85rem; font-weight: 400; }
+.invalid { border-color: var(--danger) !important; }
+
+.form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; margin: 0.5rem 0; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+.form-grid .span-2 { grid-column: span 2; }
+
+.filter-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+.filter-bar input[type=search] { flex: 1; min-width: 14rem; }
+
+.search { width: 100%; max-width: 24rem; margin-bottom: 0.75rem; }
+
+.role-choice { display: flex; gap: 1rem; }
+.role-choice label { flex-direction: row; gap: 0.4rem; font-weight: 400; }
+
+/* ---- The / bang ---- */
+.panel {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    background: var(--surface);
+}
+
+.card-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.card { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+.card-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; }
+.card-title { font-weight: 600; text-decoration: none; }
+.card-actions { display: flex; gap: 0.75rem; margin-top: 0.4rem; }
+.star { color: #eab308; margin-right: 0.25rem; }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.table th { color: var(--muted); font-weight: 500; font-size: 0.875rem; }
+.table .num { text-align: right; }
+
+.kv { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.3rem; flex-wrap: wrap; }
+.kv-key { color: var(--muted); min-width: 6.5rem; }
+
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.split > .panel { margin: 0; }
+
+.pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1rem 0; }
+
+/* ---- Thong bao ---- */
+.alert { padding: 0.6rem 0.9rem; border-radius: 6px; margin: 0.6rem 0; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.alert-error { background: var(--error-bg); color: var(--danger); }
+.alert-info { background: var(--info-bg); }
+.alert-success { background: var(--success-bg); color: var(--success); }
+.alert-warning { background: var(--warning-bg); color: var(--warning-fg); }
+.warning-line { color: var(--warning-fg); background: var(--warning-bg); padding: 0.25rem 0.5rem; border-radius: 4px; margin-top: 0.4rem; font-size: 0.9rem; }
+
+.empty-state { text-align: center; padding: 2rem 1rem; color: var(--muted); border: 1px dashed var(--border); border-radius: 8px; }
+.empty-title { font-weight: 600; margin: 0 0 0.3rem; color: var(--fg); }
+
+.forbidden { text-align: center; padding: 3rem 1rem; }
+
+/* ---- Spinner ---- */
+.spinner-wrap { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--muted); }
+.spinner {
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Diem AI + nguon (ScoreBadge) ---- */
+.score-badge { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; }
+.score-value { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 1.6rem; }
+.score-source { font-size: 0.85rem; }
+.score-hint { flex-basis: 100%; font-size: 0.8rem; color: var(--score-keyword); }
+.score-ai .score-source, .score-ai .score-value { color: var(--score-ai); }
+.score-semantic .score-source, .score-semantic .score-value { color: var(--score-semantic); }
+.score-keyword .score-source, .score-keyword .score-value { color: var(--score-keyword); }
+.score-fake .score-source, .score-fake .score-value { color: var(--score-fake); }
+.score-none { color: var(--muted); }
+
+.fit-result { margin-top: 0.75rem; }
+.fit-score { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.big-score { font-size: 2.2rem; font-weight: 700; }
+.big-score small { font-size: 1rem; color: var(--muted); font-weight: 400; }
+.apply-row { margin-top: 1.25rem; }
+
+.score-legend .legend-row { display: flex; gap: 1rem; align-items: baseline; margin: 0.3rem 0; }
+.hero { margin-bottom: 2rem; }
+
+/* ---- Trang thai ---- */
+.pill {
+    display: inline-block;
+    padding: 0.05rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+.pill-open, .pill-hired, .pill-done { background: var(--success-bg); color: var(--success); border-color: transparent; }
+.pill-closed, .pill-rejected, .pill-cancelled { background: var(--error-bg); color: var(--danger); border-color: transparent; }
+.pill-interview, .pill-scheduled { background: var(--info-bg); border-color: transparent; }
+.pill-screening { background: var(--warning-bg); color: var(--warning-fg); border-color: transparent; }
+
+.status-track { display: inline-flex; align-items: center; gap: 0.2rem; }
+.status-track .pill { margin-left: 0.5rem; }
+.track-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; border: 2px solid var(--border); }
+.track-dot.on { background: var(--accent); border-color: var(--accent); }
+.track-line { width: 1.4rem; height: 2px; background: var(--border); }
+.track-line.on { background: var(--accent); }
+
+/* ---- Sang loc lo ---- */
+.screening-progress { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin: 0.75rem 0; }
+.progress-head, .progress-meta { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.progress-bar { height: 0.75rem; background: var(--border); border-radius: 999px; overflow: hidden; margin: 0.4rem 0; }
+.progress-fill { height: 100%; background: var(--accent); transition: width 0.4s ease; }
+.screening-progress.finished .progress-fill { background: var(--success); }
+
+/* ---- Phong van ---- */
+.question-list { padding-left: 1.4rem; }
+.question-list li { margin: 0.35rem 0; }
+.question-list li input { width: calc(100% - 7rem); }
+.cv-frame { width: 100%; height: 32rem; border: 1px solid var(--border); border-radius: 6px; margin-top: 0.5rem; }
+
+.star-input { display: flex; gap: 0.2rem; }
+.star-button { background: none; border: none; font-size: 1.8rem; line-height: 1; color: var(--border); cursor: pointer; padding: 0; }
+.star-button.on { color: #eab308; }
+.stars { color: #eab308; letter-spacing: 0.1rem; }
+
+/* ---- Dashboard ---- */
+.stat-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.stat { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; }
+.stat-value { font-size: 1.6rem; font-weight: 700; }
+.stat-label { color: var(--muted); font-size: 0.875rem; }
+.bar-row { display: grid; grid-template-columns: 7rem 1fr 3.5rem; gap: 0.5rem; align-items: center; margin: 0.3rem 0; }
+.bar-track { height: 0.8rem; background: var(--border); border-radius: 4px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--accent); }
+.bar-value { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---- Dang nhap ---- */
+.auth-card { max-width: 26rem; margin: 2rem auto; display: flex; flex-direction: column; gap: 0.5rem; }
+.auth-card form { display: flex; flex-direction: column; gap: 0.75rem; }
+.auth-links { display: flex; justify-content: space-between; margin-top: 0.5rem; }
+
+/* ---- Man hinh hep: chi can doc duoc (weekly-plan tuan 9) ---- */
+@media (max-width: 720px) {
+    .split, .form-grid, .stat-row { grid-template-columns: minmax(0, 1fr); }
+    .form-grid .span-2 { grid-column: span 1; }
+    .table { display: block; overflow-x: auto; }
+    .nav-user { margin-left: 0; flex-basis: 100%; }
+    .question-list li input { width: 100%; }
 }

@@ -1,0 +1,73 @@
+@* Diem AI LUON di kem nguon (wireframes muc 0.1). Mot component, dung o UV-4, UV-5, HR-2, HR-3. *@
+
+@if (Score is null)
+{
+    <span class="score-badge score-none" title="@Labels.ScreeningStatus(ScreeningStatus)">
+        <span class="score-value">—</span>
+        <span class="score-source">@Labels.ScreeningStatus(ScreeningStatus)</span>
+    </span>
+}
+else
+{
+    <span class="score-badge @SourceClass" title="@Tooltip">
+        <span class="score-value">@Score</span>
+        <span class="score-source">@Symbol @SourceLabel</span>
+        @if (ShowHint && IsKeyword)
+        {
+            <span class="score-hint">độ chính xác thấp — nên đọc CV trực tiếp</span>
+        }
+    </span>
+}
+
+@code {
+    [Parameter]
+    public int? Score { get; set; }
+
+    [Parameter]
+    public string? AdapterUsed { get; set; }
+
+    [Parameter]
+    public string? ScreeningStatus { get; set; }
+
+    /// <summary>Hien dong canh bao cho diem Tu khoa (man chi tiet). Bang danh sach thi tat cho gon.</summary>
+    [Parameter]
+    public bool ShowHint { get; set; }
+
+    private bool IsKeyword => AdapterUsed == "Keyword";
+
+    private string Symbol => AdapterUsed switch
+    {
+        "OpenAI" => "●",
+        "Embedding" => "◐",
+        "Keyword" => "○",
+        _ => "◇",
+    };
+
+    private string SourceLabel => SourceName(AdapterUsed);
+
+    private string SourceClass => AdapterUsed switch
+    {
+        "OpenAI" => "score-ai",
+        "Embedding" => "score-semantic",
+        "Keyword" => "score-keyword",
+        _ => "score-fake",
+    };
+
+    private string Tooltip => AdapterUsed switch
+    {
+        "OpenAI" => "OpenAI — chấm theo ngữ cảnh",
+        "Embedding" => "Embedding — so khớp ngữ nghĩa",
+        "Keyword" => "Đếm từ khoá — độ chính xác thấp",
+        _ => "Điểm giả lập (môi trường dev, AiProvider=Fake)",
+    };
+
+    public static string SourceName(string? adapter) => adapter switch
+    {
+        "OpenAI" => "AI",
+        "Embedding" => "Ngữ nghĩa",
+        "Keyword" => "Từ khoá",
+        "Fake" => "Giả lập",
+        null or "" => "—",
+        _ => adapter,
+    };
+}
