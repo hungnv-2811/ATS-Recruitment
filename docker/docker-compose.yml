@@ -26,11 +26,21 @@ x-app-common: &app-common
   ConnectionStrings__Default: "Host=db;Port=5432;Database=ats;Username=ats;Password=${POSTGRES_PASSWORD:-Dev_Password123!}"
   Redis__ConnectionString: "queue:6379"
   FileStorage__RootPath: "/app/data/cvs"
-  OpenAI__ApiKey: "${OPENAI_API_KEY}"
+  # --- AI: api (preview UC-05) và worker (sàng lọc lô) PHẢI giống nhau, nên chỉ ở đây ---
   AiProvider: "${AI_PROVIDER:-Fake}"
+  OpenAI__ApiKey: "${OPENAI_API_KEY}"
+  OpenAI__Model: "${OPENAI_MODEL:-gpt-4o-mini}"
+  Ai__PreviewTimeoutSeconds: "30"
+  # Hạn mức RB2 — api kiểm khi nhận yêu cầu, worker đọc cùng số khi chạy lô.
+  Ai__PreviewLimitPerDay: "${AI_PREVIEW_LIMIT_PER_DAY:-20}"
+  Ai__BatchLimitPerDay: "${AI_BATCH_LIMIT_PER_DAY:-5}"
+  # --- Email (MailHog khi dev). Bỏ trống SMTP_HOST => NullEmailSender (chỉ ghi log). ---
   Smtp__Host: "${SMTP_HOST:-mailhog}"
   Smtp__Port: "${SMTP_PORT:-1025}"
   Smtp__From: "${SMTP_FROM:-no-reply@ats.local}"
+  Smtp__User: "${SMTP_USER:-}"
+  Smtp__Password: "${SMTP_PASSWORD:-}"
+  Smtp__EnableSsl: "${SMTP_ENABLE_SSL:-false}"
 
 services:
   db:
@@ -84,10 +94,18 @@ services:
       # Swagger để demo, nên nó phải chạy được trong container. Deploy thật thì đặt
       # ASPNETCORE_ENVIRONMENT=Production trong docker/.env.
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
-      Ai__PreviewTimeoutSeconds: "30"
+      # Link trong email "quên mật khẩu": {Web__BaseUrl}/reset-password?token=...
+      # Phải là địa chỉ TRÌNH DUYỆT mở được (cổng web phía host), không phải http://web:8080.
+      Web__BaseUrl: "http://localhost:${WEB_PORT:-8081}"
       # Áp migration lúc khởi động — chỉ dùng cho dev/demo.
       # Khi deploy thật: đặt "false" và chạy `dotnet ef database update` ở bước riêng.
+      # Chỉ api migrate/seed, worker thì không (tránh tranh khoá __EFMigrationsHistory).
       Database__AutoMigrate: "${DB_AUTO_MIGRATE:-true}"
+      # Dữ liệu demo (docs/database-design.md mục 6) — idempotent, chạy sau migration.
+      Database__SeedDemoData: "${DB_SEED_DEMO_DATA:-true}"
+      # Tài khoản Admin được seed. Mặc định CHỈ cho dev — deploy thật phải đổi trong docker/.env.
+      Seed__AdminEmail: "${SEED_ADMIN_EMAIL:-admin@ats.local}"
+      Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-Admin@123}"
       Jwt__Secret: "${JWT_SECRET:-change-me-at-least-32-characters-long-secret}"
       Jwt__Issuer: "${JWT_ISSUER:-ats-recruitment}"
       Jwt__Audience: "${JWT_AUDIENCE:-ats-recruitment-users}"
