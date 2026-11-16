@@ -51,7 +51,7 @@
                 {
                     <div class="fit-score">
                         <span class="big-score">@_score.Score <small>/ 100</small></span>
-                        <ScoreBadge Score="_score.Score" AdapterUsed="@_score.AdapterUsed" ShowHint="true" />
+                        <ScoreBadge Score="_score.Score" AdapterUsed="@_score.AdapterUsed" ScreeningStatus="@_score.ScreeningStatus" ShowHint="true" />
                     </div>
                     <p>@_score.Summary</p>
                     @if (_score.Strengths is { Count: > 0 })

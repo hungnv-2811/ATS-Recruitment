@@ -33,7 +33,7 @@ internal sealed class TestApp : IDisposable
     private readonly ServiceProvider _root;
     private readonly List<IServiceScope> _scopes = [];
 
-    public TestApp()
+    public TestApp(Action<IServiceCollection>? configure = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -67,6 +67,8 @@ internal sealed class TestApp : IDisposable
         services.AddSingleton<ICvTextExtractor>(Extractor);
         services.AddSingleton<IApplicationScreeningTrigger>(Trigger);
         services.AddSingleton<IApplicationScoreReader>(Scores);
+
+        configure?.Invoke(services);
 
         _root = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
     }

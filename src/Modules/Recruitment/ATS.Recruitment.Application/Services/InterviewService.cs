@@ -13,6 +13,8 @@ namespace ATS.Recruitment.Application.Services;
 /// <summary>Hen phong van, gui/gui lai loi moi, nhap danh gia (UC-04, tuan 8).</summary>
 public sealed class InterviewService : IInterviewService
 {
+    private static readonly TimeSpan VietnamOffset = TimeSpan.FromHours(7);
+
     private readonly IInterviewRepository _interviews;
     private readonly IEvaluationRepository _evaluations;
     private readonly IApplicationRepository _applications;
@@ -251,22 +253,28 @@ public sealed class InterviewService : IInterviewService
                 return false;
             }
 
-            var when = interview.ScheduledAt.ToString("dd/MM/yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
-            var where = interview.Mode == Interview.ModeOnline ? "Link phong van" : "Dia diem";
+            // Ung vien o Viet Nam: hien gio +07 thay vi UTC tho. Offset co dinh (VN khong doi gio
+            // mua he) nen khong phu thuoc tzdata cua container.
+            var localTime = interview.ScheduledAt.ToOffset(VietnamOffset);
+            var when = localTime.ToString("HH:mm 'ngày' dd/MM/yyyy", CultureInfo.InvariantCulture) + " (giờ Việt Nam)";
+            var isOnline = interview.Mode == Interview.ModeOnline;
+            var mode = isOnline ? "Trực tuyến" : "Tại văn phòng";
+            var where = isOnline ? "Link phỏng vấn" : "Địa điểm";
             var html =
-                $"<p>Xin chao {WebUtility.HtmlEncode(candidate.FullName)},</p>" +
-                $"<p>Ban duoc moi phong van cho vi tri <strong>{WebUtility.HtmlEncode(job.Title)}</strong>.</p>" +
+                $"<p>Chào {WebUtility.HtmlEncode(candidate.FullName)},</p>" +
+                $"<p>Bạn được mời phỏng vấn cho vị trí <strong>{WebUtility.HtmlEncode(job.Title)}</strong>.</p>" +
                 "<ul>" +
-                $"<li>Thoi gian: {when}</li>" +
-                $"<li>Hinh thuc: {interview.Mode}</li>" +
+                $"<li>Thời gian: {when}</li>" +
+                $"<li>Hình thức: {mode}</li>" +
                 $"<li>{where}: {WebUtility.HtmlEncode(interview.LocationOrLink)}</li>" +
-                $"<li>Nguoi phong van: {WebUtility.HtmlEncode(interview.InterviewerName)}</li>" +
-                "</ul>";
+                $"<li>Người phỏng vấn: {WebUtility.HtmlEncode(interview.InterviewerName)}</li>" +
+                "</ul>" +
+                "<p>Chúc bạn phỏng vấn thành công!</p>";
             var text =
-                $"Moi phong van vi tri {job.Title}. Thoi gian: {when}. Hinh thuc: {interview.Mode}. " +
-                $"{where}: {interview.LocationOrLink}. Nguoi phong van: {interview.InterviewerName}.";
+                $"Mời phỏng vấn vị trí {job.Title}. Thời gian: {when}. Hình thức: {mode}. " +
+                $"{where}: {interview.LocationOrLink}. Người phỏng vấn: {interview.InterviewerName}.";
 
-            await _email.SendAsync(new EmailMessage(to, $"Moi phong van: {job.Title}", html, text), ct);
+            await _email.SendAsync(new EmailMessage(to, $"Mời phỏng vấn: {job.Title}", html, text), ct);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

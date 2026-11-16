@@ -41,4 +41,43 @@ public class AtsDbContext : DbContext, IUnitOfWork
             modelBuilder.ApplyConfigurationsFromAssembly(moduleAssembly);
         }
     }
+
+    /// <summary>
+    /// Dich loi UNIQUE cua Postgres (23505) sang <see cref="DuplicateKeyException"/> cua
+    /// SharedKernel, de Application tra 409 thay vi de 500 lot ra ngoai.
+    /// </summary>
+    /// <remarks>
+    /// Kiem "da ton tai chua" truoc khi INSERT khong du: hai request dong thoi cung qua buoc
+    /// kiem. Chi rang buoc trong database moi chan duoc; o day chi doi cach bao loi.
+    /// IUnitOfWork.SaveChangesAsync(ct) va SaveChangesAsync(ct) deu di qua overload nay.
+    /// </remarks>
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateException ex) when (UniqueViolation.TryGetConstraint(ex, out var constraint))
+        {
+            throw new DuplicateKeyException(constraint, "Ban ghi da ton tai (vi pham rang buoc duy nhat).", ex);
+        }
+    }
+}
+
+/// <summary>Nhan dien loi vi pham UNIQUE cua PostgreSQL — tach rieng de test duoc khong can database.</summary>
+public static class UniqueViolation
+{
+    public static bool TryGetConstraint(DbUpdateException exception, out string? constraintName)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        if (exception.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation } pg)
+        {
+            constraintName = pg.ConstraintName;
+            return true;
+        }
+
+        constraintName = null;
+        return false;
+    }
 }

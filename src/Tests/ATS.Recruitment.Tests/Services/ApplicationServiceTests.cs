@@ -2,7 +2,9 @@ using ATS.Recruitment.Application.Contracts;
 using ATS.Recruitment.Application.Ports;
 using ATS.Recruitment.Domain;
 using ATS.Recruitment.Tests.Support;
+using ATS.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using JobApplication = ATS.Recruitment.Domain.Application;
 
@@ -191,6 +193,47 @@ public sealed class ApplicationServiceTests : IDisposable
         Assert.Equal(candidate, snapshot.Cv.CandidateUserId);
         Assert.False(string.IsNullOrEmpty(snapshot.Cv.ExtractedText));
         Assert.Equal([app.Id], await _app.Service<IRecruitmentQueries>().ListApplicationIdsByJobAsync(job.Id));
+    }
+
+    [Fact]
+    public async Task Nop_trung_dong_thoi_bi_database_chan_tra_Conflict_khong_500()
+    {
+        // Gia lap race: request thu hai da qua ExistsAsync, toi luc SaveChanges thi unique
+        // (job_id, candidate_id) cua Postgres chan → AtsDbContext nem DuplicateKeyException.
+        var unitOfWork = new DuplicateOnDemandUnitOfWork();
+        using var app = new TestApp(s => s.AddScoped<IUnitOfWork>(sp =>
+            unitOfWork.Wrap(sp.GetRequiredService<ATS.Persistence.AtsDbContext>())));
+        var hr = await app.RegisterAsync("hr2@example.com", "HR", "HR");
+        var candidate = await app.RegisterAsync("c2@example.com", "Candidate", "Ung Vien");
+        var job = await app.CreateJobAsync(hr.UserId);
+        var cv = await app.UploadCvAsync(candidate.UserId);
+
+        unitOfWork.ThrowOnNextSave = true;
+        var result = await app.Service<IApplicationService>().ApplyAsync(candidate.UserId, new ApplyRequest(job.Id, cv.Id));
+
+        Assert.Equal("conflict", result.Error.Code);
+        Assert.Empty(app.Trigger.Requested);
+    }
+
+    private sealed class DuplicateOnDemandUnitOfWork
+    {
+        public bool ThrowOnNextSave { get; set; }
+
+        public IUnitOfWork Wrap(IUnitOfWork inner) => new Wrapper(this, inner);
+
+        private sealed class Wrapper(DuplicateOnDemandUnitOfWork owner, IUnitOfWork inner) : IUnitOfWork
+        {
+            public Task<int> SaveChangesAsync(CancellationToken ct = default)
+            {
+                if (!owner.ThrowOnNextSave)
+                {
+                    return inner.SaveChangesAsync(ct);
+                }
+
+                owner.ThrowOnNextSave = false;
+                throw new DuplicateKeyException("ix_applications_job_id_candidate_id", "trung", new InvalidOperationException());
+            }
+        }
     }
 
     private async Task<(Guid Hr, Guid Candidate, JobDto Job, CvDto Cv)> SetupAsync()

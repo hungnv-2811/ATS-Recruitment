@@ -144,12 +144,12 @@ public sealed class AuthService : IAuthService
         var link = $"{_settings.WebBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(rawToken)}";
         var message = new EmailMessage(
             user.Email,
-            "Dat lai mat khau ATS Recruitment",
-            $"<p>Xin chao {WebUtility.HtmlEncode(user.FullName)},</p>" +
-            $"<p>Bam vao link sau de dat lai mat khau (het han sau {(int)PasswordResetToken.Lifetime.TotalMinutes} phut, dung mot lan):</p>" +
+            "Đặt lại mật khẩu ATS Recruitment",
+            $"<p>Chào {WebUtility.HtmlEncode(user.FullName)},</p>" +
+            $"<p>Bấm vào link sau để đặt lại mật khẩu (hết hạn sau {(int)PasswordResetToken.Lifetime.TotalMinutes} phút, chỉ dùng được một lần):</p>" +
             $"<p><a href=\"{WebUtility.HtmlEncode(link)}\">{WebUtility.HtmlEncode(link)}</a></p>" +
-            "<p>Neu ban khong yeu cau, hay bo qua email nay.</p>",
-            $"Dat lai mat khau: {link}");
+            "<p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>",
+            $"Đặt lại mật khẩu: {link}");
 
         try
         {

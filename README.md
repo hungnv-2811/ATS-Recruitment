@@ -169,6 +169,16 @@ dotnet build          # 0 warning (TreatWarningsAsErrors)
 dotnet test           # ~300 test: unit, ArchitectureTests (14), integration + end-to-end
 ```
 
+Bộ test `Category=Postgres` (migration, seeder, SQL báo cáo, quota, nộp đơn đồng thời) chỉ chạy
+khi có biến `ATS_TEST_POSTGRES`; CI luôn đặt biến này và dùng service `postgres:16`. Chạy ở máy
+khi `docker compose` đang bật (test tự tạo database `ats_test_<guid>` riêng rồi xoá, không đụng
+dữ liệu demo):
+
+```bash
+ATS_TEST_POSTGRES="Host=localhost;Port=5432;Username=ats;Password=Dev_Password123!;Database=postgres" \
+  dotnet test --filter Category=Postgres     # đổi Port theo DB_PORT trong docker/.env
+```
+
 Máy bật **Windows Smart App Control** sẽ chặn nạp DLL vừa build nên `dotnet test` trên Windows
 báo "An Application Control policy has blocked this file". Đừng tắt chính sách bảo mật — chạy
 test trong WSL Ubuntu (có .NET 10 SDK) hoặc để CI trên GitHub Actions chạy.
