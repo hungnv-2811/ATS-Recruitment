@@ -96,7 +96,7 @@ services:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
       # Link trong email "quên mật khẩu": {Web__BaseUrl}/reset-password?token=...
       # Phải là địa chỉ TRÌNH DUYỆT mở được (cổng web phía host), không phải http://web:8080.
-      Web__BaseUrl: "http://localhost:${WEB_PORT:-8081}"
+      Web__BaseUrl: "${WEB_BASE_URL:-http://localhost:${WEB_PORT:-8081}}"
       # Áp migration lúc khởi động — chỉ dùng cho dev/demo.
       # Khi deploy thật: đặt "false" và chạy `dotnet ef database update` ở bước riêng.
       # Chỉ api migrate/seed, worker thì không (tránh tranh khoá __EFMigrationsHistory).

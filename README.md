@@ -144,6 +144,21 @@ Migration và dữ liệu demo tự chạy lúc API khởi động (`DB_AUTO_MIG
 `DB_SEED_DEMO_DATA=true` trong `docker/.env`), nên sau `up -d` là có ngay 3 schema, 14 bảng và
 dữ liệu để demo — **không cần** `OPENAI_API_KEY`. Seed idempotent: khởi động lại không nhân đôi.
 
+### Cho máy khác truy cập (Cloudflare Tunnel)
+
+Chỉ cần mở cổng web (8081) — giao diện tự gọi API bên trong mạng docker.
+
+```bash
+winget install --id Cloudflare.cloudflared             # một lần
+cloudflared tunnel --url http://localhost:8081         # in ra link https://xxxx.trycloudflare.com
+```
+
+Gửi link đó cho người khác. Để link trong email "quên mật khẩu" trỏ đúng, đặt
+`WEB_BASE_URL=https://xxxx.trycloudflare.com` trong `docker/.env` rồi
+`docker compose -f docker/docker-compose.yml up -d api`. Link chỉ sống khi máy đang bật,
+docker đang chạy và cửa sổ `cloudflared` còn mở; mỗi lần chạy lại là một link mới. Ai có link
+cũng đăng nhập được bằng tài khoản demo — tắt tunnel (Ctrl+C) sau buổi demo.
+
 ### Tài khoản demo
 
 | Vai | Email | Mật khẩu |
