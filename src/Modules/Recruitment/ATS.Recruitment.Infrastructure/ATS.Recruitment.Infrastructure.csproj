@@ -13,4 +13,10 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
 
+  <!-- TV1 (thu muc Shared/): trich text CV PDF/DOCX. Tach ItemGroup rieng de merge khong dung nhau. -->
+  <ItemGroup Label="Shared - TV1">
+    <PackageReference Include="PdfPig" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
+  </ItemGroup>
+
 </Project>
