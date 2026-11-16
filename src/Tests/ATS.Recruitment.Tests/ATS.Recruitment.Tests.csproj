@@ -2,6 +2,14 @@
 
   <ItemGroup>
     <ProjectReference Include="../../Modules/Recruitment/ATS.Recruitment.Application/ATS.Recruitment.Application.csproj" />
+    <ProjectReference Include="../../Modules/Recruitment/ATS.Recruitment.Infrastructure/ATS.Recruitment.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/Identity/ATS.Identity.Application/ATS.Identity.Application.csproj" />
+    <ProjectReference Include="../../Modules/Identity/ATS.Identity.Infrastructure/ATS.Identity.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Repository that chay tren bo nho: test ca service lan EF config ma khong can Postgres. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
   </ItemGroup>
 
 </Project>
