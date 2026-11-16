@@ -339,3 +339,43 @@ trang trí.
 - Không gọi `HttpClient` thẳng trong `.razor`; đi qua service class trong `Services/`
   (xem [`code-review.md`](code-review.md) mục 8).
 - Không hardcode URL API — đọc `ApiBaseUrl` từ config, đã wire sẵn ở `Program.cs` tuần 2.
+
+---
+
+## 5. Đã dựng — route thật của `ATS.Web`
+
+| Màn | Route | Vai | File |
+|---|---|---|---|
+| UV-1 | `/login`, `/register`, `/forgot-password`, `/reset-password?token=` | ẩn danh | `Pages/Auth/*` |
+| UV-2 | `/me/cvs` | Ứng viên | `Pages/Candidate/MyCvs.razor` |
+| UV-3 | `/jobs` | ẩn danh | `Pages/Candidate/Jobs.razor` |
+| UV-4 | `/jobs/{id}` | ẩn danh xem; Ứng viên xem độ phù hợp + nộp | `Pages/Candidate/JobDetail.razor` |
+| UV-5 | `/me/applications` | Ứng viên | `Pages/Candidate/MyApplications.razor` |
+| HR-1 | `/hr/jobs`, `/hr/jobs/new`, `/hr/jobs/{id}/edit` | HR | `Pages/Hr/HrJobs.razor`, `JobEditor.razor` |
+| HR-2 | `/hr/jobs/{id}/applications` | HR | `Pages/Hr/JobApplications.razor` |
+| HR-3 | `/hr/applications/{id}` | HR | `Pages/Hr/ApplicationDetail.razor` |
+| HR-4 | `/hr/applications/{id}/interview` | HR | `Pages/Hr/ScheduleInterview.razor` |
+| HR-5 | `/hr/interviews/{id}/evaluate` | HR | `Pages/Hr/Evaluate.razor` |
+| — | `/hr/interviews` (lịch phỏng vấn) | HR | `Pages/Hr/HrInterviews.razor` |
+| HR-6 | `/dashboard` | HR, Admin | `Pages/Dashboard.razor` |
+| — | `/admin/users` | Admin | `Pages/Admin/Users.razor` |
+
+Cách hiện thực bốn quy tắc ở mục 0:
+
+- **0.1** — mọi chỗ hiện điểm đi qua `Components/Shared/ScoreBadge.razor` (điểm + ký hiệu ●◐○ +
+  tên nguồn; `Keyword` kèm "độ chính xác thấp"). HR-2 hiện cảnh báo khi bảng trộn nhiều nguồn.
+- **0.2** — không nút nào phụ thuộc điểm AI: nút "Ứng tuyển" vẫn bật khi hết lượt/AI lỗi/CV không
+  đọc được; HR chuyển trạng thái khi điểm còn trống.
+- **0.3** — trang cần đăng nhập kế thừa `Components/Shared/SecurePage.cs`: chưa đăng nhập → về
+  `/login?returnUrl=…`; sai vai → hiện 403 ngay tại trang; dữ liệu chỉ tải **sau** khi qua guard.
+  API vẫn là lớp chặn thật (policy theo vai).
+- **0.4** — preview: spinner trong nút + nút Huỷ (huỷ `CancellationToken` của request); sàng lọc
+  lô: `ScreeningProgress` polling 2s, quay lại trang thì đọc `GET /api/jobs/{id}/screening-jobs/latest`.
+
+Ghi chú kỹ thuật:
+
+- Phiên đăng nhập: JWT trong `ProtectedLocalStorage` (mã hoá bằng Data Protection) → F5 không mất
+  đăng nhập. Vì cần JS interop nên `App.razor` **tắt prerender** (`InteractiveServerRenderMode(prerender: false)`).
+- Mọi lời gọi API qua `Services/ApiClient.cs`: gắn Bearer, đổi ProblemDetails thành câu tiếng Việt,
+  401 khi đang đăng nhập → tự đăng xuất. Trang `.razor` chỉ gọi các `*Api` trong `Services/FeatureApis.cs`.
+- CV gốc (HR-3) tải bằng JWT rồi mở qua `wwwroot/app.js` (Blob URL) — thẻ `<a>` không tự gắn header.
