@@ -89,7 +89,16 @@ public sealed class ApplicationService : IApplicationService
 
         var application = JobApplication.Submit(job.Id, candidate.Id, cv.Id, _clock.GetUtcNow());
         await _applications.AddAsync(application, ct);
-        await _uow.SaveChangesAsync(ct);
+        try
+        {
+            await _uow.SaveChangesAsync(ct);
+        }
+        catch (DuplicateKeyException)
+        {
+            // Hai request nop CUNG luc deu qua ExistsAsync o tren; unique (job_id, candidate_id)
+            // trong database chan request thu hai. Tra 409 nhu nop trung binh thuong, khong 500.
+            return Result.Failure<ApplicationDto>(Error.Conflict("Ban da nop don vao tin nay."));
+        }
 
         // Don DA duoc luu. Nho AiScreening cham la viec phu: loi o day (Redis sap...) KHONG duoc
         // lam hong viec nop don — don van hien voi ScreeningStatus "Pending" (RB9).
