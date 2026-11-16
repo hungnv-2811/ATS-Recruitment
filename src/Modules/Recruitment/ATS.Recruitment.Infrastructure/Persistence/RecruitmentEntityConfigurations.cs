@@ -61,6 +61,7 @@ internal sealed class CvConfiguration : IEntityTypeConfiguration<Cv>
 
         // Rang buoc 4: moi ung vien chi MOT CV mac dinh (partial unique index).
         builder.HasIndex(c => c.CandidateId, "ix_cvs_default")
+            .HasDatabaseName("ix_cvs_default")
             .IsUnique()
             .HasFilter("is_default");
     }
