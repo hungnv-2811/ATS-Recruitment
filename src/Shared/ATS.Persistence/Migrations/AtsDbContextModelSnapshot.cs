@@ -382,6 +382,14 @@ namespace ATS.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("role");
 
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("security_stamp")
+                        .HasDefaultValueSql("replace(gen_random_uuid()::text, '-', '')");
+
                     b.HasKey("Id")
                         .HasName("pk_users");
 

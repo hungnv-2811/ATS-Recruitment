@@ -31,6 +31,7 @@ erDiagram
         string password_hash
         string full_name "họ tên hiển thị — claim JWT 'name'"
         string role "Candidate|HR|Admin"
+        string security_stamp "đổi khi khoá/đổi vai/đổi mật khẩu — thu hồi JWT"
         bool is_active
         timestamp created_at
     }

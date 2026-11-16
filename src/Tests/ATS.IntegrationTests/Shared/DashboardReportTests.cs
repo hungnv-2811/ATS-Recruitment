@@ -96,7 +96,12 @@ public sealed class DashboardReportTests : IClassFixture<WebApplicationFactory<P
             builder.UseSetting("Jwt:Issuer", Issuer);
             builder.UseSetting("Jwt:Audience", Audience);
             builder.ConfigureTestServices(services =>
-                services.Replace(ServiceDescriptor.Scoped<IDashboardReportService>(_ => stub)));
+            {
+                services.Replace(ServiceDescriptor.Scoped<IDashboardReportService>(_ => stub));
+
+                // Token tu ky cho user gia (khong co trong DB): bo qua kiem security stamp.
+                services.Replace(ServiceDescriptor.Singleton<ATS.Identity.Application.ITokenSessionValidator>(new AllowAllSessions()));
+            });
         }).CreateClient();
         return (client, stub);
     }

@@ -24,6 +24,13 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Role).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(u => u.IsActive).IsRequired();
         builder.Property(u => u.CreatedAt).IsRequired();
+
+        // Dong cu (truoc khi co cot nay) nhan gia tri ngau nhien tu default cua database, nen
+        // migrate xong la token cu (khong co claim sstamp) bi tu choi va user dang nhap lai.
+        builder.Property(u => u.SecurityStamp)
+            .HasMaxLength(64)
+            .IsRequired()
+            .HasDefaultValueSql("replace(gen_random_uuid()::text, '-', '')");
     }
 }
 

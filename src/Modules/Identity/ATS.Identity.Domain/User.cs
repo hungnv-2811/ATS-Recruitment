@@ -22,6 +22,7 @@ public sealed class User : Entity<Guid>
         FullName = fullName;
         IsActive = true;
         CreatedAt = createdAt;
+        SecurityStamp = NewStamp();
     }
 
     public string Email { get; private set; } = string.Empty;
@@ -35,6 +36,16 @@ public sealed class User : Entity<Guid>
     public DateTimeOffset CreatedAt { get; private set; }
 
     public string FullName { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Chuoi ngau nhien nam trong JWT (claim <c>sstamp</c>). Doi stamp = vo hieu MOI token da phat.
+    /// </summary>
+    /// <remarks>
+    /// JWT tu chua, API khong tra database khi kiem chu ky — nen khoa tai khoan khong tu lam token
+    /// cu het hieu luc. API so stamp trong token voi stamp hien tai moi request; cac thao tac
+    /// nhay cam (khoa, doi vai, doi mat khau) deu xoay stamp.
+    /// </remarks>
+    public string SecurityStamp { get; private set; } = string.Empty;
 
     public static User Create(string email, string passwordHash, Role role, string fullName, DateTimeOffset now)
     {
@@ -55,9 +66,31 @@ public sealed class User : Entity<Guid>
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(newPasswordHash);
         PasswordHash = newPasswordHash;
+        SecurityStamp = NewStamp();
     }
 
-    public void SetActive(bool isActive) => IsActive = isActive;
+    public void SetActive(bool isActive)
+    {
+        if (IsActive == isActive)
+        {
+            return;
+        }
 
-    public void ChangeRole(Role role) => Role = role;
+        IsActive = isActive;
+        SecurityStamp = NewStamp();
+    }
+
+    public void ChangeRole(Role role)
+    {
+        if (Role == role)
+        {
+            return;
+        }
+
+        // Token cu mang vai cu trong claim "role" — phai vo hieu ngay, khong cho dung quyen cu.
+        Role = role;
+        SecurityStamp = NewStamp();
+    }
+
+    private static string NewStamp() => Guid.NewGuid().ToString("N");
 }
