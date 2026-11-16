@@ -5,57 +5,77 @@
 <PageTitle>ATS Recruitment</PageTitle>
 
 <section class="hero">
+    <span class="hero-eyebrow">Đồ án Chuyên đề tổng hợp · Nhóm 3</span>
     <h1>Tuyển dụng có AI trợ lý hai chiều</h1>
-    <p class="muted">
-        Ứng viên biết mức độ phù hợp <em>trước khi</em> nộp CV. HR nhận danh sách đã xếp hạng và
-        bộ câu hỏi phỏng vấn gợi ý từ CV + JD. CV luôn được ẩn danh trước khi gửi lên AI.
+    <p>
+        Ứng viên biết mức độ phù hợp <em>trước khi</em> nộp CV. HR nhận danh sách đã xếp hạng và bộ
+        câu hỏi phỏng vấn gợi ý từ CV + JD. CV luôn được ẩn danh trước khi gửi lên AI.
     </p>
 
     @if (Session.Current is { } user)
     {
-        <p>Xin chào <strong>@user.FullName</strong>.</p>
+        <div class="hero-greeting">Xin chào <strong>@user.FullName</strong> 👋</div>
         <div class="actions">
             @if (user.IsCandidate)
             {
-                <a class="btn btn-primary" href="jobs">Tìm việc</a>
-                <a class="btn" href="me/cvs">Quản lý CV</a>
-                <a class="btn" href="me/applications">Hồ sơ đã nộp</a>
+                <a class="btn btn-primary btn-lg" href="jobs">Tìm việc phù hợp</a>
+                <a class="btn btn-ghost btn-lg" href="me/cvs">Quản lý CV</a>
+                <a class="btn btn-ghost btn-lg" href="me/applications">Hồ sơ đã nộp</a>
             }
             else if (user.IsHr)
             {
-                <a class="btn btn-primary" href="hr/jobs">Tin tuyển dụng của tôi</a>
-                <a class="btn" href="hr/interviews">Lịch phỏng vấn</a>
-                <a class="btn" href="dashboard">Báo cáo</a>
+                <a class="btn btn-primary btn-lg" href="hr/jobs">Tin tuyển dụng của tôi</a>
+                <a class="btn btn-ghost btn-lg" href="hr/interviews">Lịch phỏng vấn</a>
+                <a class="btn btn-ghost btn-lg" href="dashboard">Báo cáo</a>
             }
             else
             {
-                <a class="btn btn-primary" href="admin/users">Quản lý tài khoản</a>
-                <a class="btn" href="dashboard">Báo cáo</a>
+                <a class="btn btn-primary btn-lg" href="admin/users">Quản lý tài khoản</a>
+                <a class="btn btn-ghost btn-lg" href="dashboard">Báo cáo</a>
             }
         </div>
     }
     else
     {
         <div class="actions">
-            <a class="btn btn-primary" href="jobs">Xem việc làm</a>
-            <a class="btn" href="register">Đăng ký</a>
-            <a class="btn" href="login">Đăng nhập</a>
+            <a class="btn btn-primary btn-lg" href="jobs">Xem việc làm</a>
+            <a class="btn btn-ghost btn-lg" href="register">Tạo tài khoản</a>
         </div>
     }
 </section>
 
-<section class="score-legend">
+<section class="feature-grid" aria-label="Tính năng chính">
+    <div class="feature">
+        <div class="feature-icon" aria-hidden="true">🎯</div>
+        <h3>Biết độ phù hợp trước khi nộp</h3>
+        <p>Chọn CV, bấm xem — AI chấm 0–100 kèm điểm mạnh và kỹ năng còn thiếu. Xem lại không tốn lượt.</p>
+    </div>
+    <div class="feature">
+        <div class="feature-icon" aria-hidden="true">📊</div>
+        <h3>HR nhận danh sách đã xếp hạng</h3>
+        <p>Sàng lọc hàng loạt chạy nền, xếp theo điểm. Hẹn phỏng vấn kèm bộ câu hỏi gợi ý từ CV + JD.</p>
+    </div>
+    <div class="feature">
+        <div class="feature-icon" aria-hidden="true">🛡️</div>
+        <h3>Ẩn danh trước khi gửi AI</h3>
+        <p>Email, số điện thoại, địa chỉ, tên trường bị gỡ khỏi CV — ép bằng kiểu dữ liệu ngay từ lúc biên dịch.</p>
+    </div>
+</section>
+
+<section class="panel score-legend">
     <h2>Điểm phù hợp luôn kèm nguồn</h2>
+    <p class="muted small">Ba tầng chấm cho ba thang điểm khác nhau — không bao giờ hiện con số trần.</p>
     <div class="legend-row">
         <ScoreBadge Score="82" AdapterUsed="OpenAI" />
-        <span>AI chấm theo ngữ cảnh</span>
+        <span class="legend-text">AI chấm theo ngữ cảnh của CV và mô tả công việc.</span>
     </div>
     <div class="legend-row">
         <ScoreBadge Score="74" AdapterUsed="Embedding" />
-        <span>So khớp ngữ nghĩa (khi AI chính lỗi)</span>
+        <span class="legend-text">So khớp ngữ nghĩa — dùng khi AI chính tạm lỗi.</span>
     </div>
     <div class="legend-row">
-        <ScoreBadge Score="61" AdapterUsed="Keyword" ShowHint="true" />
+        <ScoreBadge Score="61" AdapterUsed="Keyword" />
+        <span class="legend-text">Đếm từ khoá — luôn chạy được, độ chính xác thấp, nên đọc CV trực tiếp.</span>
     </div>
 </section>
 
